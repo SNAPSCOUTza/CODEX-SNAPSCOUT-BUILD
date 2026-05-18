@@ -1,0 +1,1109 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Check, Search, MapPin, Star, Briefcase, Filter, Clock, SlidersHorizontal, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
+import { createBrowserClient } from "@/lib/supabase/client"
+import { MessageButton } from "@/components/messaging/message-button"
+import { SaveProfileButton } from "@/components/messaging/save-profile-button"
+import { mockCrewMembers } from "@/lib/mock-data/crew-data"
+import Link from "next/link"
+import MobileShell from "@/components/mobile/mobile-shell"
+import { motion } from "framer-motion"
+import { AvailabilityStatusBadge } from "@/components/availability/availability-status-badge"
+
+interface CrewMember {
+  id: string
+  user_id: string
+  display_name: string
+  profession: string
+  department?: string
+  role?: string
+  city: string
+  province: string
+  profile_picture: string
+  bio: string
+  availability_status: string
+  experience_level?: string
+  skills: string[]
+  specialties?: string[]
+  rating?: number
+  years_experience?: string
+  recent_work?: string
+  recent_work_caption?: string
+  is_profile_visible: boolean
+  isLiveProfile: boolean
+}
+
+const departments = ["Camera", "Audio", "Lighting", "Production", "Art", "Hair & Makeup"]
+const roles = [
+  "Director of Photography",
+  "Camera Operator",
+  "Focus Puller",
+  "Camera Assistant",
+  "Sound Engineer",
+  "Boom Operator",
+  "Gaffer",
+  "Best Boy Electric",
+  "Key Grip",
+  "Art Director",
+  "Wardrobe Stylist",
+  "Makeup Artist",
+  "Hair Stylist",
+  "Production Manager",
+  "Script Supervisor",
+]
+const locations = ["Cape Town, SA", "Johannesburg, SA", "Durban, SA", "Pretoria, SA", "Port Elizabeth, SA"]
+
+export default function FindCrewPage() {
+  const [selectedMember, setSelectedMember] = useState<CrewMember | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const [searchTerm, setSearchTerm] = useState("")
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [showDesktopFilters, setShowDesktopFilters] = useState(false)
+
+  // Filter states
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([])
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+  const [selectedLocation, setSelectedLocation] = useState("")
+  const [selectedAvailability, setSelectedAvailability] = useState("")
+  const [selectedExperienceLevel, setSelectedExperienceLevel] = useState("")
+
+  const [crewMembers, setCrewMembers] = useState<CrewMember[]>([])
+  const [loading, setLoading] = useState(true)
+  const [usingMockData, setUsingMockData] = useState(false)
+
+  useEffect(() => {
+    fetchCrewMembers()
+  }, [])
+
+  const fetchCrewMembers = async () => {
+    try {
+      setLoading(true)
+      const supabase = createBrowserClient()
+
+      // If Supabase client is not available, use mock data
+      if (!supabase) {
+        console.warn("[v0] Supabase client not available, using mock data")
+        setCrewMembers(mockCrewMembers.map((m) => ({ ...m, isLiveProfile: false })))
+        setUsingMockData(true)
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(`
+          id, full_name, email, profession, bio, location,
+          profile_image_url, availability, pricing, skills,
+          social_links, portfolio_images, is_public, subscription_status
+        `)
+        .eq("is_public", true)
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      const liveProfiles = (data || []).map((profile) => ({
+        id: profile.id,
+        user_id: profile.id,
+        display_name: profile.full_name || "Unknown",
+        full_name: profile.full_name,
+        profession: profile.profession || "Film Crew",
+        department: getDepartmentFromProfession(profile.profession),
+        role: profile.profession,
+        city: profile.location?.split(",")[0]?.trim() || "",
+        province: profile.location?.split(",")[1]?.trim() || "SA",
+        profile_picture: profile.profile_image_url,
+        bio: profile.bio,
+        availability_status: profile.availability || "available",
+        skills: profile.skills || [],
+        specialties: profile.skills || [],
+        is_profile_visible: profile.is_public,
+        isLiveProfile: true, // Flag to identify live profiles
+      }))
+
+      // Live profiles appear first, then mock profiles
+      const combinedProfiles = [...liveProfiles, ...mockCrewMembers.map((m) => ({ ...m, isLiveProfile: false }))]
+
+      setCrewMembers(combinedProfiles)
+      setUsingMockData(liveProfiles.length === 0)
+    } catch (error: any) {
+      console.warn("[v0] Error fetching crew members, using mock data:", error?.message || error)
+      setCrewMembers(mockCrewMembers.map((m) => ({ ...m, isLiveProfile: false })))
+      setUsingMockData(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getDepartmentFromProfession = (profession: string | null): string => {
+    if (!profession) return "Production"
+    const lowerProfession = profession.toLowerCase()
+    if (
+      lowerProfession.includes("camera") ||
+      lowerProfession.includes("dop") ||
+      lowerProfession.includes("cinematographer") ||
+      lowerProfession.includes("videographer")
+    )
+      return "Camera"
+    if (lowerProfession.includes("sound") || lowerProfession.includes("audio") || lowerProfession.includes("boom"))
+      return "Audio"
+    if (lowerProfession.includes("light") || lowerProfession.includes("gaffer") || lowerProfession.includes("grip"))
+      return "Lighting"
+    if (lowerProfession.includes("makeup") || lowerProfession.includes("hair") || lowerProfession.includes("stylist"))
+      return "Hair & Makeup"
+    if (lowerProfession.includes("art") || lowerProfession.includes("set") || lowerProfession.includes("props"))
+      return "Art"
+    return "Production"
+  }
+
+  // Filter crew members
+  const filteredCrew = crewMembers.filter((member) => {
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      const matchesSearch =
+        member.display_name?.toLowerCase().includes(term) ||
+        member.profession?.toLowerCase().includes(term) ||
+        member.role?.toLowerCase().includes(term) ||
+        member.city?.toLowerCase().includes(term) ||
+        member.skills?.some((skill) => skill.toLowerCase().includes(term))
+      if (!matchesSearch) return false
+    }
+
+    // Department filter
+    if (selectedDepartments.length > 0 && member.department) {
+      if (!selectedDepartments.includes(member.department)) return false
+    }
+
+    // Role filter
+    if (selectedRoles.length > 0 && member.role) {
+      if (!selectedRoles.includes(member.role)) return false
+    }
+
+    // Location filter
+    if (selectedLocation && selectedLocation !== "All Locations") {
+      const memberLocation = `${member.city}, ${member.province}`
+      if (memberLocation !== selectedLocation) return false
+    }
+
+    // Availability filter
+    if (selectedAvailability && selectedAvailability !== "All") {
+      if (member.availability_status !== selectedAvailability.toLowerCase()) return false
+    }
+
+    // Experience level filter
+    if (selectedExperienceLevel && selectedExperienceLevel !== "All Levels" && member.experience_level) {
+      if (member.experience_level !== selectedExperienceLevel) return false
+    }
+
+    return true
+  })
+
+  const clearAllFilters = () => {
+    setSearchTerm("")
+    setSelectedDepartments([])
+    setSelectedRoles([])
+    setSelectedLocation("")
+    setSelectedAvailability("")
+    setSelectedExperienceLevel("")
+  }
+
+  const hasActiveFilters =
+    searchTerm ||
+    selectedDepartments.length > 0 ||
+    selectedRoles.length > 0 ||
+    selectedLocation ||
+    selectedAvailability ||
+    selectedExperienceLevel
+
+  const activeMobileFilterCount =
+    selectedDepartments.length +
+    selectedRoles.length +
+    (selectedLocation && selectedLocation !== "All Locations" ? 1 : 0) +
+    (selectedAvailability ? 1 : 0) +
+    (selectedExperienceLevel && selectedExperienceLevel !== "All Levels" ? 1 : 0)
+
+  const handleViewProfile = (member: CrewMember) => {
+    setSelectedMember(member)
+    setIsModalOpen(true)
+  }
+
+  const toggleDepartment = (dept: string) => {
+    setSelectedDepartments((prev) => (prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept]))
+  }
+
+  const toggleRole = (role: string) => {
+    setSelectedRoles((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]))
+  }
+
+  const setAvailabilityFilter = (status: string) => {
+    setSelectedAvailability(status === "All" ? "" : status.toLowerCase())
+  }
+
+  // Filter sidebar component
+  const FilterSidebar = ({ mobile = false }: { mobile?: boolean }) => (
+    <div className={`space-y-6 ${mobile ? "" : "sticky top-4"}`}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-foreground">Filters</h3>
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-primary hover:text-primary/80">
+            Clear all
+          </Button>
+        )}
+      </div>
+
+      {/* Department Filter */}
+      <div>
+        <h4 className="text-sm font-medium text-foreground mb-3">Department</h4>
+        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+          {departments.map((dept) => (
+            <label key={dept} className="flex items-center gap-2 cursor-pointer">
+              <Checkbox checked={selectedDepartments.includes(dept)} onCheckedChange={() => toggleDepartment(dept)} />
+              <span className="text-sm text-muted-foreground">{dept}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Role Filter */}
+      <div>
+        <h4 className="text-sm font-medium text-foreground mb-3">Role</h4>
+        <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+          {roles.map((role) => (
+            <label key={role} className="flex items-center gap-2 cursor-pointer">
+              <Checkbox checked={selectedRoles.includes(role)} onCheckedChange={() => toggleRole(role)} />
+              <span className="text-sm text-muted-foreground">{role}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Location Filter */}
+      <div>
+        <h4 className="text-sm font-medium text-foreground mb-3">Location</h4>
+        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Locations" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All Locations">All Locations</SelectItem>
+            {locations.map((loc) => (
+              <SelectItem key={loc} value={loc}>
+                {loc}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Availability Filter */}
+      <div>
+        <h4 className="text-sm font-medium text-foreground mb-3">Availability</h4>
+        <div className="space-y-2">
+          {["All", "Available", "Booked"].map((status) => (
+            <label key={status} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="availability"
+                checked={selectedAvailability === status.toLowerCase() || (!selectedAvailability && status === "All")}
+                onChange={() => setAvailabilityFilter(status)}
+                className="text-primary"
+              />
+              <span className="text-sm text-muted-foreground">{status}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Experience Level Filter */}
+      <div>
+        <h4 className="text-sm font-medium text-foreground mb-3">Experience Level</h4>
+        <Select value={selectedExperienceLevel} onValueChange={setSelectedExperienceLevel}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Levels" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All Levels">All Levels</SelectItem>
+            <SelectItem value="Entry">Entry Level</SelectItem>
+            <SelectItem value="Mid">Mid Level</SelectItem>
+            <SelectItem value="Senior">Senior</SelectItem>
+            <SelectItem value="Expert">Expert</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="md:hidden">
+        <MobileShell
+          title="Find Crew"
+          rightAction={
+            <Button
+              variant="outline"
+              className="w-full border-[#e8e0d5] bg-white text-[#111318]"
+              onClick={() => setShowMobileFilters(true)}
+            >
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              Open Filters
+            </Button>
+          }
+        >
+          {usingMockData && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+              Showing mock crew profiles while live profiles load.
+            </div>
+          )}
+
+          <div className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-[#fffcf7] px-3 py-3">
+              <Search className="h-4 w-4 text-[#73757d]" />
+              <Input
+                type="text"
+                placeholder="Search crew, role, location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-8 border-0 bg-transparent p-0 text-[14px] shadow-none focus-visible:ring-0"
+              />
+              <motion.button
+                type="button"
+                onClick={() => setShowMobileFilters(true)}
+                whileTap={{ scale: 0.92 }}
+                className="grid h-9 w-9 place-items-center rounded-full border border-[#e7e0d6] bg-white"
+                aria-label="Open filters"
+              >
+                <Filter className="h-4 w-4 text-[#111318]" />
+              </motion.button>
+            </div>
+
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {departments.slice(0, 5).map((dept) => (
+                <button
+                  key={dept}
+                  type="button"
+                  onClick={() => toggleDepartment(dept)}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-medium ${
+                    selectedDepartments.includes(dept)
+                      ? "border-[#0d0f13] bg-[#0d0f13] text-white"
+                      : "border-[#e7e0d6] bg-white text-[#20232b]"
+                  }`}
+                >
+                  {dept}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {loading ? (
+                [...Array(3)].map((_, i) => (
+                  <Card key={`mobile-skeleton-${i}`} className="rounded-[22px] border-[#eee6db]">
+                    <CardContent className="p-4">
+                      <Skeleton className="h-20 w-full rounded-xl" />
+                    </CardContent>
+                  </Card>
+                ))
+              ) : filteredCrew.length > 0 ? (
+                filteredCrew.map((member) => (
+                  <Card key={member.id} className="overflow-hidden rounded-[26px] border-[#ece4da] bg-[#fffdf9] shadow-[0_16px_34px_rgba(0,0,0,0.05)]">
+                    <CardContent className="p-3">
+                      <Link href={`/crew/${member.id}`} className="relative block h-[176px] w-full overflow-hidden rounded-[20px]">
+                        <img
+                          src={member.recent_work || member.profile_picture || "/placeholder.svg"}
+                          alt={member.display_name}
+                          className="h-full w-full object-cover"
+                        />
+                      </Link>
+                      <div className="mt-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[21px] font-semibold leading-none text-[#111318]">{member.display_name}</p>
+                            <p className="mt-1 text-[13px] font-medium text-[#ef1218]">{member.profession}</p>
+                            <div className="mt-1 flex items-center gap-1 text-[12px] text-[#666b75]">
+                              <MapPin className="h-3.5 w-3.5" />
+                              <span>
+                                {member.city}, {member.province}
+                              </span>
+                            </div>
+                            <div className="mt-2">
+                              <AvailabilityStatusBadge ownerId={member.user_id || member.id} ownerType="crew" />
+                            </div>
+                          </div>
+                          <SaveProfileButton profileId={member.user_id} profileName={member.display_name} size="icon" variant="ghost" />
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
+                            <p className="text-[18px] font-semibold leading-none text-[#111318]">{Math.round(((member.rating || 4.8) - 3.8) * 120)}+</p>
+                            <p className="mt-1 text-[11px] text-[#676b75]">Projects</p>
+                          </div>
+                          <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
+                            <p className="text-[18px] font-semibold leading-none text-[#111318]">
+                              {member.years_experience?.replace(/\D/g, "").slice(0, 1) || "4"}
+                            </p>
+                            <p className="mt-1 text-[11px] text-[#676b75]">Years</p>
+                          </div>
+                          <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
+                            <p className="text-[18px] font-semibold leading-none text-[#111318]">{Math.min(99, Math.round((member.rating || 4.8) * 20))}%</p>
+                            <p className="mt-1 text-[11px] text-[#676b75]">Response</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {(member.specialties || member.skills || []).slice(0, 4).map((tag, i) => (
+                            <Badge key={`${member.id}-tag-${i}`} className="rounded-full border-0 bg-[#111318] px-3 py-1 text-[11px] font-medium text-white">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 flex items-end justify-between gap-2">
+                          <div>
+                            <p className="text-[12px] text-[#666b75]">From</p>
+                            <p className="text-[34px] font-semibold leading-none text-[#111318]">R950</p>
+                          </div>
+                          <div className="flex flex-1 items-center justify-end gap-2">
+                            <MessageButton recipientId={member.user_id} recipientName={member.display_name} size="icon" variant="outline" />
+                            <Link href={`/crew/${member.id}`} className="w-[70%]">
+                              <Button className="h-12 w-full rounded-full bg-[#ef1218] text-[15px] font-semibold text-white hover:bg-[#d90d12]">
+                                Hire
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="py-10 text-center">
+                  <p className="text-[14px] font-medium text-[#1a1d22]">No crew matched these filters.</p>
+                  <Button variant="outline" className="mt-3 rounded-full border-[#e7e0d6] bg-white" onClick={clearAllFilters}>
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Dialog open={showMobileFilters} onOpenChange={setShowMobileFilters}>
+            <DialogContent
+              showCloseButton={false}
+              className="fixed bottom-0 left-0 right-0 top-auto z-[70] max-h-[88dvh] w-full max-w-none translate-x-0 translate-y-0 isolate gap-0 overflow-hidden rounded-b-none rounded-t-[30px] border-x-0 border-b-0 border-t border-[#eadfd2] bg-[#fffaf3] p-0 text-[#0b0b0d] shadow-[0_-24px_70px_rgba(0,0,0,0.22)] duration-300 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:max-w-none"
+            >
+              <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#d9d0c4]" />
+              <DialogHeader className="border-b border-[#eee4d8] bg-[#fffaf3] px-5 pb-4 pt-4 text-left">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <DialogTitle className="text-[22px] leading-tight">Filters</DialogTitle>
+                    <DialogDescription className="mt-1">
+                      {activeMobileFilterCount ? `${activeMobileFilterCount} active` : `${filteredCrew.length} crew available`}
+                    </DialogDescription>
+                  </div>
+                  <motion.button
+                    type="button"
+                    onClick={() => setShowMobileFilters(false)}
+                    aria-label="Close filters"
+                    whileTap={{ scale: 0.9, rotate: -8 }}
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e5dbcf] bg-white text-[#111318] shadow-sm transition-colors hover:bg-[#f4eee6]"
+                  >
+                    <X className="h-5 w-5" />
+                  </motion.button>
+                </div>
+              </DialogHeader>
+
+              <div className="max-h-[calc(88dvh-156px)] overflow-y-auto bg-[#fffaf3] px-5 py-5">
+                {activeMobileFilterCount > 0 && (
+                  <div className="mb-5 flex flex-wrap gap-2">
+                    {selectedDepartments.map((dept) => (
+                      <Button
+                        key={`active-dept-${dept}`}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => toggleDepartment(dept)}
+                        className="h-8 rounded-full px-3 text-xs"
+                      >
+                        {dept}
+                        <X className="ml-1 h-3.5 w-3.5" />
+                      </Button>
+                    ))}
+                    {selectedRoles.map((role) => (
+                      <Button
+                        key={`active-role-${role}`}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => toggleRole(role)}
+                        className="h-8 rounded-full px-3 text-xs"
+                      >
+                        {role}
+                        <X className="ml-1 h-3.5 w-3.5" />
+                      </Button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  <section>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-foreground">Department</p>
+                      <span className="text-xs text-muted-foreground">{selectedDepartments.length} selected</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {departments.map((dept) => {
+                        const selected = selectedDepartments.includes(dept)
+                        return (
+                          <Button
+                            key={dept}
+                            type="button"
+                            variant={selected ? "default" : "outline"}
+                            aria-pressed={selected}
+                            onClick={() => toggleDepartment(dept)}
+                            className="h-11 justify-start rounded-full px-4 text-sm"
+                          >
+                            {dept}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </section>
+
+                  <section>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-foreground">Role</p>
+                      <span className="text-xs text-muted-foreground">{selectedRoles.length} selected</span>
+                    </div>
+                    <div className="grid max-h-48 gap-2 overflow-y-auto pr-1">
+                      {roles.map((role) => {
+                        const selected = selectedRoles.includes(role)
+                        return (
+                          <button
+                            key={role}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => toggleRole(role)}
+                            className={`flex min-h-11 items-center justify-between rounded-2xl border px-3 text-left text-sm transition-colors ${
+                              selected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-[#e5dbcf] bg-white text-[#111318] hover:bg-[#f4eee6]"
+                            }`}
+                          >
+                            <span>{role}</span>
+                            <span
+                              className={`ml-3 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
+                                selected ? "border-primary-foreground" : "border-border"
+                              }`}
+                              aria-hidden="true"
+                            >
+                              {selected && <Check className="h-3.5 w-3.5" />}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="grid gap-4">
+                    <div>
+                      <p className="mb-3 text-sm font-semibold text-foreground">Location</p>
+                      <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                        <SelectTrigger className="h-12 rounded-2xl">
+                          <SelectValue placeholder="All Locations" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="All Locations">All Locations</SelectItem>
+                          {locations.map((loc) => (
+                            <SelectItem key={loc} value={loc}>
+                              {loc}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <p className="mb-3 text-sm font-semibold text-foreground">Experience</p>
+                      <Select value={selectedExperienceLevel} onValueChange={setSelectedExperienceLevel}>
+                        <SelectTrigger className="h-12 rounded-2xl">
+                          <SelectValue placeholder="All Levels" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="All Levels">All Levels</SelectItem>
+                          <SelectItem value="Entry">Entry Level</SelectItem>
+                          <SelectItem value="Mid">Mid Level</SelectItem>
+                          <SelectItem value="Senior">Senior</SelectItem>
+                          <SelectItem value="Expert">Expert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </section>
+
+                  <section>
+                    <p className="mb-3 text-sm font-semibold text-foreground">Availability</p>
+                    <div className="grid grid-cols-3 gap-2 rounded-2xl bg-muted p-1">
+                      {[
+                        { label: "All", value: "" },
+                        { label: "Available", value: "available" },
+                        { label: "Booked", value: "booked" },
+                      ].map((status) => (
+                        <button
+                          key={status.label}
+                          type="button"
+                          onClick={() => setSelectedAvailability(status.value)}
+                          className={`h-10 rounded-xl text-sm font-medium transition-colors ${
+                            selectedAvailability === status.value
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {status.label}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[1fr_1.5fr] gap-3 border-t border-[#eee4d8] bg-[#fffaf3] px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4">
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-full"
+                  onClick={() => {
+                    clearAllFilters()
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button className="h-12 rounded-full" onClick={() => setShowMobileFilters(false)}>
+                  Show {filteredCrew.length} profiles
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </MobileShell>
+      </div>
+
+      <div className="hidden md:block">
+      {/* Header */}
+      <div className="bg-background border-b border-border py-12">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h1 className="text-4xl font-bold text-foreground mb-4">Find Film Crew</h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+            Connect with talented film crew members in your area. From directors of photography to sound engineers, find
+            the perfect team for your next production.
+          </p>
+
+          {/* Search Bar */}
+          <div className="max-w-xl mx-auto mb-6">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by name, role, or location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 h-12 bg-card border-border"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4 justify-center">
+            <Link href="/marketplace/post-job">
+              <Button className="bg-[#ffd6bf] text-[#4a1d12] hover:bg-[#ffc8a8]">Post a Job</Button>
+            </Link>
+            <Link href="/marketplace/available-jobs">
+              <Button className="bg-[#d40000] text-white hover:bg-[#b80000]">View Available Jobs</Button>
+            </Link>
+          </div>
+
+          {usingMockData && (
+            <div className="mt-4">
+              <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                Showing mock data for testing
+              </Badge>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex gap-8">
+          {/* Desktop Filters Sidebar */}
+          <aside className="hidden lg:block w-72 flex-shrink-0">
+            <Card className="p-6 bg-card border-border">
+              <FilterSidebar />
+            </Card>
+          </aside>
+
+          {/* Mobile Filter Button */}
+          <div className="lg:hidden fixed bottom-4 left-4 right-4 z-40">
+            <Button
+              onClick={() => setShowDesktopFilters(true)}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filters{" "}
+              {hasActiveFilters &&
+                `(${selectedDepartments.length + selectedRoles.length + (selectedLocation ? 1 : 0)})`}
+            </Button>
+          </div>
+
+          {/* Mobile Filters Modal */}
+          <Dialog open={showDesktopFilters} onOpenChange={setShowDesktopFilters}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Filters</DialogTitle>
+              </DialogHeader>
+              <FilterSidebar mobile />
+              <Button onClick={() => setShowDesktopFilters(false)} className="mt-4">
+                Apply Filters
+              </Button>
+            </DialogContent>
+          </Dialog>
+
+          {/* Results */}
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">
+                  Available Crew Members ({filteredCrew.length})
+                </h2>
+                <p className="text-sm text-muted-foreground">Browse through our verified film crew professionals</p>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="grid gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <Card key={i} className="p-6">
+                    <div className="flex gap-4">
+                      <Skeleton className="h-16 w-16 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-40" />
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredCrew.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {filteredCrew.map((member) => (
+                  <Card
+                    key={member.id}
+                    className="overflow-hidden bg-card border-border hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => handleViewProfile(member)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <Avatar className="h-16 w-16 border-2 border-border">
+                          <AvatarImage src={member.profile_picture || "/placeholder.svg"} alt={member.display_name} />
+                          <AvatarFallback className="bg-muted text-muted-foreground">
+                            {member.display_name?.charAt(0) || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-foreground truncate">{member.display_name}</h3>
+                            {member.rating && (
+                              <div className="flex items-center gap-1 text-amber-500">
+                                <Star className="h-4 w-4 fill-current" />
+                                <span className="text-sm font-medium">{member.rating}</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{member.profession}</p>
+                          {member.recent_work_caption && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                              {member.recent_work_caption}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Badges */}
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        {member.department && (
+                          <Badge variant="secondary" className="text-xs">
+                            {member.department}
+                          </Badge>
+                        )}
+                        <Badge
+                          variant={member.availability_status === "available" ? "default" : "secondary"}
+                          className={`text-xs ${
+                            member.availability_status === "available"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {member.availability_status === "available" ? "Available" : "Booked"}
+                        </Badge>
+                        <AvailabilityStatusBadge ownerId={member.user_id || member.id} ownerType="crew" />
+                        {member.experience_level && (
+                          <Badge variant="outline" className="text-xs">
+                            {member.experience_level}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Specialties */}
+                      {member.specialties && member.specialties.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs text-muted-foreground mb-1">Specialties:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {member.specialties.slice(0, 3).map((specialty, i) => (
+                              <span key={i} className="text-xs text-primary">
+                                {specialty}
+                                {i < Math.min(member.specialties!.length, 3) - 1 && " •"}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Location & Experience */}
+                      <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          <span>
+                            {member.city}, {member.province}
+                          </span>
+                        </div>
+                        {member.years_experience && (
+                          <div className="flex items-center gap-1">
+                            <Briefcase className="h-4 w-4" />
+                            <span>{member.years_experience}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Recent Work Preview */}
+                      {member.recent_work && (
+                        <div className="mt-4">
+                          <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Recent post
+                          </p>
+                          <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                            <img
+                              src={member.recent_work || "/placeholder.svg"}
+                              alt="Recent work"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          {member.recent_work_caption && (
+                            <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                              {member.recent_work_caption}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
+                        <MessageButton
+                          recipientId={member.user_id}
+                          recipientName={member.display_name}
+                          size="icon"
+                          variant="outline"
+                          className="flex-1"
+                        />
+                        <SaveProfileButton
+                          profileId={member.user_id}
+                          profileName={member.display_name}
+                          size="icon"
+                          variant="outline"
+                        />
+                        <Link href={`/crew/${member.id}`} className="w-full">
+                          <Button className="w-full bg-red-700 hover:bg-red-800 text-white">View Full Profile</Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="p-12 text-center bg-card border-border">
+                <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No crew members found</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your search terms or filters to find more results.
+                </p>
+                {hasActiveFilters && (
+                  <Button onClick={clearAllFilters} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    Clear All Filters
+                  </Button>
+                )}
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+      </div>
+
+      {/* Profile Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl bg-white border-2 border-gray-200 shadow-2xl">
+          {selectedMember && (
+            <>
+              <DialogHeader className="pb-4 border-b border-border">
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-20 w-20 border-2 border-border flex-shrink-0">
+                    <AvatarImage
+                      src={selectedMember.profile_picture || "/placeholder.svg"}
+                      alt={selectedMember.display_name}
+                    />
+                    <AvatarFallback className="text-xl bg-muted text-muted-foreground">
+                      {selectedMember.display_name?.charAt(0) || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="text-2xl font-bold text-foreground">
+                      {selectedMember.display_name}
+                    </DialogTitle>
+                    <p className="text-base font-semibold text-primary mt-1">{selectedMember.profession}</p>
+                    {selectedMember.recent_work_caption && (
+                      <p className="text-sm text-muted-foreground mt-1">{selectedMember.recent_work_caption}</p>
+                    )}
+                    <div className="flex items-center gap-4 mt-3">
+                      {selectedMember.rating && (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                          <span className="font-semibold text-foreground">{selectedMember.rating}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span className="text-sm">
+                          {selectedMember.city}, {selectedMember.province}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-6 mt-6">
+                {/* Badges */}
+                <div className="flex flex-wrap gap-2">
+                  {selectedMember.department && (
+                    <Badge variant="secondary" className="text-xs bg-secondary text-secondary-foreground">
+                      {selectedMember.department}
+                    </Badge>
+                  )}
+                  <Badge
+                    className={`text-xs font-semibold ${
+                      selectedMember.availability_status === "available"
+                        ? "bg-green-100 text-green-800 hover:bg-green-100"
+                        : "bg-amber-100 text-amber-800 hover:bg-amber-100"
+                    }`}
+                  >
+                    {selectedMember.availability_status === "available" ? "Available" : "Booked"}
+                  </Badge>
+                  {selectedMember.experience_level && (
+                    <Badge variant="outline" className="text-xs">
+                      {selectedMember.experience_level}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Bio */}
+                {selectedMember.bio && (
+                  <div className="bg-secondary/30 p-4 rounded-lg">
+                    <h4 className="font-semibold text-foreground mb-2 text-sm">About</h4>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{selectedMember.bio}</p>
+                  </div>
+                )}
+
+                {/* Skills */}
+                {selectedMember.skills && selectedMember.skills.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-3 text-sm">Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedMember.skills.map((skill, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Specialties */}
+                {selectedMember.specialties && selectedMember.specialties.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-3 text-sm">Specialties</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedMember.specialties.map((specialty, i) => (
+                        <Badge key={i} variant="outline" className="text-xs bg-background">
+                          {specialty}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Years Experience */}
+                {selectedMember.years_experience && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-secondary/30 p-3 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Experience</p>
+                      <p className="text-sm font-semibold text-foreground">{selectedMember.years_experience}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Work */}
+                {selectedMember.recent_work && (
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-3 text-sm">Recent Work</h4>
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-muted border border-border">
+                      <img
+                        src={selectedMember.recent_work || "/placeholder.svg"}
+                        alt="Recent work"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    {selectedMember.recent_work_caption && (
+                      <p className="text-sm text-muted-foreground mt-2">{selectedMember.recent_work_caption}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t border-border">
+                  <MessageButton
+                    recipientId={selectedMember.user_id}
+                    recipientName={selectedMember.display_name}
+                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  />
+                  <SaveProfileButton
+                    profileId={selectedMember.user_id}
+                    profileName={selectedMember.display_name}
+                    className="flex-1"
+                  />
+                  <Link href={`/crew/${selectedMember.id}`} className="w-full">
+                    <Button className="w-full bg-red-700 hover:bg-red-800 text-white">View Full Profile</Button>
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
