@@ -14,11 +14,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { MessageButton } from "@/components/messaging/message-button"
 import { SaveProfileButton } from "@/components/messaging/save-profile-button"
+import { SaveToPoolButton } from "@/components/crew/SaveToPoolButton"
 import { mockCrewMembers } from "@/lib/mock-data/crew-data"
 import Link from "next/link"
 import MobileShell from "@/components/mobile/mobile-shell"
 import { motion } from "framer-motion"
 import { AvailabilityStatusBadge } from "@/components/availability/availability-status-badge"
+import { HireRequestSheet } from "@/components/booking/hire-request-sheet"
+import { AnimatedCount } from "@/components/ui/animated-count"
+import { MotionRevealGroup, MotionRevealItem, MotionRevealSolo } from "@/components/ui/motion-reveal"
+import { StickyScrollCard } from "@/components/ui/sticky-scroll-card"
 
 interface CrewMember {
   id: string
@@ -66,6 +71,7 @@ const locations = ["Cape Town, SA", "Johannesburg, SA", "Durban, SA", "Pretoria,
 export default function FindCrewPage() {
   const [selectedMember, setSelectedMember] = useState<CrewMember | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [hireRequestMember, setHireRequestMember] = useState<CrewMember | null>(null)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [showMobileFilters, setShowMobileFilters] = useState(false)
@@ -101,35 +107,41 @@ export default function FindCrewPage() {
       }
 
       const { data, error } = await supabase
-        .from("profiles")
+        .from("user_profiles")
         .select(`
-          id, full_name, email, profession, bio, location,
-          profile_image_url, availability, pricing, skills,
-          social_links, portfolio_images, is_public, subscription_status
+          id, user_id, full_name, display_name, username, email, profession, bio, location, city, province,
+          profile_image_url, profile_picture, avatar_url, availability, availability_status, pricing,
+          hourly_rate, daily_rate, project_rate, skills, social_links, portfolio_images,
+          is_public, is_profile_visible, subscription_status, created_at
         `)
-        .eq("is_public", true)
+        .eq("is_profile_visible", true)
         .order("created_at", { ascending: false })
 
       if (error) throw error
 
-      const liveProfiles = (data || []).map((profile) => ({
-        id: profile.id,
-        user_id: profile.id,
-        display_name: profile.full_name || "Unknown",
-        full_name: profile.full_name,
-        profession: profile.profession || "Film Crew",
-        department: getDepartmentFromProfession(profile.profession),
-        role: profile.profession,
-        city: profile.location?.split(",")[0]?.trim() || "",
-        province: profile.location?.split(",")[1]?.trim() || "SA",
-        profile_picture: profile.profile_image_url,
-        bio: profile.bio,
-        availability_status: profile.availability || "available",
-        skills: profile.skills || [],
-        specialties: profile.skills || [],
-        is_profile_visible: profile.is_public,
-        isLiveProfile: true, // Flag to identify live profiles
-      }))
+      const liveProfiles = (data || []).map((profile: any) => {
+        const profileId = profile.user_id || profile.id
+        const location = profile.location || [profile.city, profile.province].filter(Boolean).join(", ")
+
+        return {
+          id: profileId,
+          user_id: profileId,
+          display_name: profile.display_name || profile.full_name || profile.username || "Unknown",
+          full_name: profile.full_name || profile.display_name || profile.username || "Unknown",
+          profession: profile.profession || "Film Crew",
+          department: getDepartmentFromProfession(profile.profession),
+          role: profile.profession,
+          city: profile.city || location?.split(",")[0]?.trim() || "",
+          province: profile.province || location?.split(",")[1]?.trim() || "SA",
+          profile_picture: profile.profile_image_url || profile.profile_picture || profile.avatar_url || "",
+          bio: profile.bio,
+          availability_status: profile.availability_status || profile.availability || "available",
+          skills: profile.skills || [],
+          specialties: profile.skills || [],
+          is_profile_visible: profile.is_profile_visible ?? profile.is_public ?? true,
+          isLiveProfile: true, // Flag to identify live profiles
+        }
+      })
 
       // Live profiles appear first, then mock profiles
       const combinedProfiles = [...liveProfiles, ...mockCrewMembers.map((m) => ({ ...m, isLiveProfile: false }))]
@@ -238,6 +250,10 @@ export default function FindCrewPage() {
     setIsModalOpen(true)
   }
 
+  const openHireRequest = (member: CrewMember) => {
+    setHireRequestMember(member)
+  }
+
   const toggleDepartment = (dept: string) => {
     setSelectedDepartments((prev) => (prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept]))
   }
@@ -265,7 +281,7 @@ export default function FindCrewPage() {
       {/* Department Filter */}
       <div>
         <h4 className="text-sm font-medium text-foreground mb-3">Department</h4>
-        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+        <div className="no-scrollbar space-y-2 max-h-40 overflow-y-auto pr-2">
           {departments.map((dept) => (
             <label key={dept} className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={selectedDepartments.includes(dept)} onCheckedChange={() => toggleDepartment(dept)} />
@@ -278,7 +294,7 @@ export default function FindCrewPage() {
       {/* Role Filter */}
       <div>
         <h4 className="text-sm font-medium text-foreground mb-3">Role</h4>
-        <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+        <div className="no-scrollbar space-y-2 max-h-48 overflow-y-auto pr-2">
           {roles.map((role) => (
             <label key={role} className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={selectedRoles.includes(role)} onCheckedChange={() => toggleRole(role)} />
@@ -361,13 +377,15 @@ export default function FindCrewPage() {
           }
         >
           {usingMockData && (
-            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-              Showing mock crew profiles while live profiles load.
-            </div>
+            <MotionRevealSolo className="mb-4">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                Showing mock crew profiles while live profiles load.
+              </div>
+            </MotionRevealSolo>
           )}
 
-          <div className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-[#fffcf7] px-3 py-3">
+          <MotionRevealGroup className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
+            <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
               <Search className="h-4 w-4 text-[#73757d]" />
               <Input
                 type="text"
@@ -385,14 +403,15 @@ export default function FindCrewPage() {
               >
                 <Filter className="h-4 w-4 text-[#111318]" />
               </motion.button>
-            </div>
+            </MotionRevealItem>
 
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <MotionRevealItem className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
               {departments.slice(0, 5).map((dept) => (
-                <button
+                <motion.button
                   key={dept}
                   type="button"
                   onClick={() => toggleDepartment(dept)}
+                  whileTap={{ scale: 0.96 }}
                   className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-medium ${
                     selectedDepartments.includes(dept)
                       ? "border-[#0d0f13] bg-[#0d0f13] text-white"
@@ -400,30 +419,40 @@ export default function FindCrewPage() {
                   }`}
                 >
                   {dept}
-                </button>
+                </motion.button>
               ))}
-            </div>
+            </MotionRevealItem>
 
-            <div className="mt-4 space-y-4">
-              {loading ? (
-                [...Array(3)].map((_, i) => (
+            {loading ? (
+              <div className="mt-4 space-y-4">
+                {[...Array(3)].map((_, i) => (
                   <Card key={`mobile-skeleton-${i}`} className="rounded-[22px] border-[#eee6db]">
                     <CardContent className="p-4">
                       <Skeleton className="h-20 w-full rounded-xl" />
                     </CardContent>
                   </Card>
-                ))
-              ) : filteredCrew.length > 0 ? (
-                filteredCrew.map((member) => (
-                  <Card key={member.id} className="overflow-hidden rounded-[26px] border-[#ece4da] bg-[#fffdf9] shadow-[0_16px_34px_rgba(0,0,0,0.05)]">
+                ))}
+              </div>
+            ) : filteredCrew.length > 0 ? (
+              <MotionRevealGroup className="mt-4 space-y-4">
+                {filteredCrew.map((member, index) => {
+                  const projectCount = Math.round(((member.rating || 4.8) - 3.8) * 120)
+                  const yearsCount = Number(member.years_experience?.replace(/\D/g, "").slice(0, 1) || 4)
+                  const responseRate = Math.min(99, Math.round((member.rating || 4.8) * 20))
+
+                  return (
+                  <StickyScrollCard key={member.id} top="88px" delay={0.08 + index * 0.08}>
+                  <Card className="overflow-hidden rounded-[26px] border-[#ece4da] bg-white shadow-[0_16px_34px_rgba(0,0,0,0.05)]">
                     <CardContent className="p-3">
-                      <Link href={`/crew/${member.id}`} className="relative block h-[176px] w-full overflow-hidden rounded-[20px]">
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.38, ease: "easeOut" }}>
+                        <Link href={`/crew/${member.id}`} className="relative block h-[176px] w-full overflow-hidden rounded-[20px]">
                         <img
                           src={member.recent_work || member.profile_picture || "/placeholder.svg"}
                           alt={member.display_name}
                           className="h-full w-full object-cover"
                         />
-                      </Link>
+                        </Link>
+                      </motion.div>
                       <div className="mt-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -443,18 +472,22 @@ export default function FindCrewPage() {
                         </div>
 
                         <div className="mt-3 grid grid-cols-3 gap-2">
-                          <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
-                            <p className="text-[18px] font-semibold leading-none text-[#111318]">{Math.round(((member.rating || 4.8) - 3.8) * 120)}+</p>
+                          <div className="rounded-2xl border border-[#eef1f6] bg-white px-2 py-2 text-center">
+                            <p className="text-[18px] font-semibold leading-none text-[#111318]">
+                              <AnimatedCount value={projectCount} suffix="+" />
+                            </p>
                             <p className="mt-1 text-[11px] text-[#676b75]">Projects</p>
                           </div>
-                          <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
+                          <div className="rounded-2xl border border-[#eef1f6] bg-white px-2 py-2 text-center">
                             <p className="text-[18px] font-semibold leading-none text-[#111318]">
-                              {member.years_experience?.replace(/\D/g, "").slice(0, 1) || "4"}
+                              <AnimatedCount value={yearsCount} />
                             </p>
                             <p className="mt-1 text-[11px] text-[#676b75]">Years</p>
                           </div>
-                          <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
-                            <p className="text-[18px] font-semibold leading-none text-[#111318]">{Math.min(99, Math.round((member.rating || 4.8) * 20))}%</p>
+                          <div className="rounded-2xl border border-[#eef1f6] bg-white px-2 py-2 text-center">
+                            <p className="text-[18px] font-semibold leading-none text-[#111318]">
+                              <AnimatedCount value={responseRate} suffix="%" />
+                            </p>
                             <p className="mt-1 text-[11px] text-[#676b75]">Response</p>
                           </div>
                         </div>
@@ -474,35 +507,42 @@ export default function FindCrewPage() {
                           </div>
                           <div className="flex flex-1 items-center justify-end gap-2">
                             <MessageButton recipientId={member.user_id} recipientName={member.display_name} size="icon" variant="outline" />
-                            <Link href={`/crew/${member.id}`} className="w-[70%]">
-                              <Button className="h-12 w-full rounded-full bg-[#ef1218] text-[15px] font-semibold text-white hover:bg-[#d90d12]">
-                                Hire
-                              </Button>
-                            </Link>
+                            <SaveToPoolButton profileId={member.user_id || member.id} profileName={member.display_name} size="icon" variant="outline" />
+                            <Button
+                              type="button"
+                              onClick={() => openHireRequest(member)}
+                              className="h-12 w-[70%] rounded-full bg-[#ef1218] text-[15px] font-semibold text-white hover:bg-[#d90d12]"
+                            >
+                              Hire
+                            </Button>
                           </div>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))
-              ) : (
+                  </StickyScrollCard>
+                  )
+                })}
+              </MotionRevealGroup>
+            ) : (
+              <MotionRevealItem className="mt-4">
                 <div className="py-10 text-center">
                   <p className="text-[14px] font-medium text-[#1a1d22]">No crew matched these filters.</p>
                   <Button variant="outline" className="mt-3 rounded-full border-[#e7e0d6] bg-white" onClick={clearAllFilters}>
                     Clear Filters
                   </Button>
                 </div>
-              )}
-            </div>
-          </div>
+              </MotionRevealItem>
+            )}
+          </MotionRevealGroup>
 
           <Dialog open={showMobileFilters} onOpenChange={setShowMobileFilters}>
             <DialogContent
               showCloseButton={false}
-              className="fixed bottom-0 left-0 right-0 top-auto z-[70] max-h-[88dvh] w-full max-w-none translate-x-0 translate-y-0 isolate gap-0 overflow-hidden rounded-b-none rounded-t-[30px] border-x-0 border-b-0 border-t border-[#eadfd2] bg-[#fffaf3] p-0 text-[#0b0b0d] shadow-[0_-24px_70px_rgba(0,0,0,0.22)] duration-300 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:max-w-none"
+              className="fixed bottom-0 left-0 right-0 top-auto z-[70] max-h-[88dvh] w-full max-w-none translate-x-0 translate-y-0 isolate gap-0 overflow-hidden rounded-b-none rounded-t-[30px] border-x-0 border-b-0 border-t border-[#e5e9f2] bg-white p-0 text-[#0b0b0d] shadow-[0_-24px_70px_rgba(0,0,0,0.22)] duration-300 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:max-w-none"
             >
-              <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#d9d0c4]" />
-              <DialogHeader className="border-b border-[#eee4d8] bg-[#fffaf3] px-5 pb-4 pt-4 text-left">
+              <div className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-[#d7dce6]" />
+              <DialogHeader className="border-b border-[#e8edf5] bg-white px-5 pb-4 pt-4 text-left">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <DialogTitle className="text-[22px] leading-tight">Filters</DialogTitle>
@@ -515,14 +555,14 @@ export default function FindCrewPage() {
                     onClick={() => setShowMobileFilters(false)}
                     aria-label="Close filters"
                     whileTap={{ scale: 0.9, rotate: -8 }}
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e5dbcf] bg-white text-[#111318] shadow-sm transition-colors hover:bg-[#f4eee6]"
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e1e7f1] bg-white text-[#111318] shadow-sm transition-colors hover:bg-[#f6f8fc]"
                   >
                     <X className="h-5 w-5" />
                   </motion.button>
                 </div>
               </DialogHeader>
 
-              <div className="max-h-[calc(88dvh-156px)] overflow-y-auto bg-[#fffaf3] px-5 py-5">
+              <div className="no-scrollbar max-h-[calc(88dvh-156px)] overflow-y-auto bg-white px-5 py-5">
                 {activeMobileFilterCount > 0 && (
                   <div className="mb-5 flex flex-wrap gap-2">
                     {selectedDepartments.map((dept) => (
@@ -584,7 +624,7 @@ export default function FindCrewPage() {
                       <p className="text-sm font-semibold text-foreground">Role</p>
                       <span className="text-xs text-muted-foreground">{selectedRoles.length} selected</span>
                     </div>
-                    <div className="grid max-h-48 gap-2 overflow-y-auto pr-1">
+                    <div className="no-scrollbar grid max-h-48 gap-2 overflow-y-auto pr-1">
                       {roles.map((role) => {
                         const selected = selectedRoles.includes(role)
                         return (
@@ -596,7 +636,7 @@ export default function FindCrewPage() {
                             className={`flex min-h-11 items-center justify-between rounded-2xl border px-3 text-left text-sm transition-colors ${
                               selected
                                 ? "border-primary bg-primary text-primary-foreground"
-                                : "border-[#e5dbcf] bg-white text-[#111318] hover:bg-[#f4eee6]"
+                                : "border-[#e1e7f1] bg-white text-[#111318] hover:bg-[#f6f8fc]"
                             }`}
                           >
                             <span>{role}</span>
@@ -675,7 +715,7 @@ export default function FindCrewPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-[1fr_1.5fr] gap-3 border-t border-[#eee4d8] bg-[#fffaf3] px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4">
+              <div className="grid grid-cols-[1fr_1.5fr] gap-3 border-t border-[#e8edf5] bg-white px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-4">
                 <Button
                   variant="outline"
                   className="h-12 rounded-full"
@@ -763,7 +803,7 @@ export default function FindCrewPage() {
 
           {/* Mobile Filters Modal */}
           <Dialog open={showDesktopFilters} onOpenChange={setShowDesktopFilters}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogContent className="no-scrollbar max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Filters</DialogTitle>
               </DialogHeader>
@@ -802,9 +842,9 @@ export default function FindCrewPage() {
               </div>
             ) : filteredCrew.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {filteredCrew.map((member) => (
+                {filteredCrew.map((member, index) => (
+                  <StickyScrollCard key={member.id} top="116px" delay={0.08 + index * 0.06}>
                   <Card
-                    key={member.id}
                     className="overflow-hidden bg-card border-border hover:shadow-lg transition-shadow cursor-pointer"
                     onClick={() => handleViewProfile(member)}
                   >
@@ -927,12 +967,19 @@ export default function FindCrewPage() {
                           size="icon"
                           variant="outline"
                         />
+                        <SaveToPoolButton
+                          profileId={member.user_id || member.id}
+                          profileName={member.display_name}
+                          size="icon"
+                          variant="outline"
+                        />
                         <Link href={`/crew/${member.id}`} className="w-full">
                           <Button className="w-full bg-red-700 hover:bg-red-800 text-white">View Full Profile</Button>
                         </Link>
                       </div>
                     </CardContent>
                   </Card>
+                  </StickyScrollCard>
                 ))}
               </div>
             ) : (
@@ -1095,6 +1142,11 @@ export default function FindCrewPage() {
                     profileName={selectedMember.display_name}
                     className="flex-1"
                   />
+                  <SaveToPoolButton
+                    profileId={selectedMember.user_id || selectedMember.id}
+                    profileName={selectedMember.display_name}
+                    className="flex-1"
+                  />
                   <Link href={`/crew/${selectedMember.id}`} className="w-full">
                     <Button className="w-full bg-red-700 hover:bg-red-800 text-white">View Full Profile</Button>
                   </Link>
@@ -1104,6 +1156,18 @@ export default function FindCrewPage() {
           )}
         </DialogContent>
       </Dialog>
+      {hireRequestMember && (
+        <HireRequestSheet
+          open={!!hireRequestMember}
+          onOpenChange={(open) => {
+            if (!open) setHireRequestMember(null)
+          }}
+          talentId={hireRequestMember.user_id || hireRequestMember.id}
+          talentName={hireRequestMember.display_name}
+          talentType="crew"
+          priceLabel="R950/hr"
+        />
+      )}
     </div>
   )
 }

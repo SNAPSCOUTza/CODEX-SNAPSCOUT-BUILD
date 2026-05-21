@@ -8,80 +8,24 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
 import { Search, MapPin, Star, Camera, Phone, Mail, Globe, SlidersHorizontal, X } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 import MobileShell from "@/components/mobile/mobile-shell"
 import { motion } from "framer-motion"
 import { AvailabilityStatusBadge } from "@/components/availability/availability-status-badge"
+import { HireRequestSheet } from "@/components/booking/hire-request-sheet"
+import { studiosStoresData, type StudioStoreItem } from "@/lib/mock-data/studios-stores-data"
+import { AnimatedCount } from "@/components/ui/animated-count"
+import { MotionRevealGroup, MotionRevealItem } from "@/components/ui/motion-reveal"
+import { StickyScrollCard } from "@/components/ui/sticky-scroll-card"
 
 export default function StudiosStoresPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedLocation, setSelectedLocation] = useState("all")
   const [selectedType, setSelectedType] = useState("all")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [bookingItem, setBookingItem] = useState<StudioStoreItem | null>(null)
 
-  // Mock data for studios and stores
-  const studiosStores = [
-    {
-      id: 1,
-      name: "Cape Town Film Studios",
-      type: "studio",
-      location: "Cape Town, Western Cape",
-      rating: 4.8,
-      reviews: 124,
-      image: "/images/film-clapperboard.jpg",
-      description:
-        "Full-service film and television production studio with state-of-the-art equipment and experienced crew.",
-      services: ["Film Production", "TV Production", "Commercial Shoots", "Equipment Rental"],
-      equipment: ["RED Cameras", "Lighting Rigs", "Sound Equipment", "Editing Suites"],
-      hourlyRate: "R2,500 - R5,000",
-      contact: {
-        phone: "+27 21 123 4567",
-        email: "info@capetownfilmstudios.co.za",
-        website: "www.capetownfilmstudios.co.za",
-      },
-      verified: true,
-      availability: "Available",
-    },
-    {
-      id: 2,
-      name: "Johannesburg Camera Rentals",
-      type: "store",
-      location: "Johannesburg, Gauteng",
-      rating: 4.6,
-      reviews: 89,
-      image: "/images/camera-viewfinder.jpg",
-      description: "Premier camera and equipment rental house serving the Johannesburg film community.",
-      services: ["Camera Rental", "Lens Rental", "Lighting Equipment", "Audio Gear"],
-      equipment: ["ARRI Cameras", "Canon Cinema", "Sony FX Series", "Zeiss Lenses"],
-      hourlyRate: "R500 - R2,000",
-      contact: {
-        phone: "+27 11 987 6543",
-        email: "rentals@jhbcamera.co.za",
-        website: "www.jhbcamerarentals.co.za",
-      },
-      verified: true,
-      availability: "Available",
-    },
-    {
-      id: 3,
-      name: "Durban Production House",
-      type: "studio",
-      location: "Durban, KwaZulu-Natal",
-      rating: 4.7,
-      reviews: 67,
-      image: "/images/videography-camera.jpg",
-      description: "Creative production studio specializing in commercials, music videos, and corporate content.",
-      services: ["Commercial Production", "Music Videos", "Corporate Videos", "Post-Production"],
-      equipment: ["Blackmagic Cameras", "DaVinci Resolve", "Pro Tools", "Green Screen"],
-      hourlyRate: "R1,800 - R3,500",
-      contact: {
-        phone: "+27 31 456 7890",
-        email: "hello@durbanproduction.co.za",
-        website: "www.durbanproduction.co.za",
-      },
-      verified: false,
-      availability: "Booked",
-    },
-  ]
+  const studiosStores = studiosStoresData
 
   const filteredStudiosStores = studiosStores.filter((item) => {
     const matchesSearch =
@@ -93,6 +37,19 @@ export default function StudiosStoresPage() {
 
     return matchesSearch && matchesLocation && matchesType
   })
+
+  const getBookingOptions = (item: StudioStoreItem) =>
+    Array.from(
+      new Set([
+        ...item.services,
+        ...(item.type === "store"
+          ? ["Camera rental", "Lens rental", "Full kit rental", "Multiple-day rental"]
+          : ["Studio booking", "Photo shoot", "Video shoot", "Full-day studio hire"]),
+        "Other",
+      ]),
+    )
+
+  const bookingStartingRate = bookingItem?.hourlyRate.split(" - ")[0] || bookingItem?.hourlyRate || "Rate on request"
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -110,8 +67,8 @@ export default function StudiosStoresPage() {
             </Button>
           }
         >
-          <div className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-[#fffcf7] px-3 py-3">
+          <MotionRevealGroup className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
+            <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
               <Search className="h-4 w-4 text-[#73757d]" />
               <Input
                 placeholder="Search studios, stores, services..."
@@ -128,18 +85,19 @@ export default function StudiosStoresPage() {
               >
                 <SlidersHorizontal className="h-4 w-4 text-[#111318]" />
               </motion.button>
-            </div>
+            </MotionRevealItem>
 
-            <div className="mt-3 flex gap-2">
+            <MotionRevealItem className="mt-3 flex gap-2">
               {[
                 { label: "All", value: "all" },
                 { label: "Studios", value: "studio" },
                 { label: "Stores", value: "store" },
               ].map((chip) => (
-                <button
+                <motion.button
                   key={chip.value}
                   type="button"
                   onClick={() => setSelectedType(chip.value)}
+                  whileTap={{ scale: 0.96 }}
                   className={`rounded-full border px-3 py-1.5 text-[12px] font-medium ${
                     selectedType === chip.value
                       ? "border-[#0d0f13] bg-[#0d0f13] text-white"
@@ -147,68 +105,85 @@ export default function StudiosStoresPage() {
                   }`}
                 >
                   {chip.label}
-                </button>
+                </motion.button>
               ))}
-            </div>
+            </MotionRevealItem>
 
-            <div className="mt-4 space-y-3">
-              {filteredStudiosStores.map((item) => (
-                <Card key={item.id} className="overflow-hidden rounded-[22px] border-[#eee6db] bg-[#fffdf9]">
-                  <CardContent className="p-0">
-                    <div className="relative h-40">
-                      <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
-                      <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-semibold text-[#111318]">
-                        {item.type === "studio" ? "Studio" : "Equipment Store"}
-                      </span>
-                    </div>
-                    <div className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[16px] font-semibold text-[#0d0f13]">{item.name}</p>
-                          <div className="mt-1 flex items-center gap-1 text-[12px] text-[#666b75]">
-                            <MapPin className="h-3.5 w-3.5" />
-                            <span>{item.location}</span>
+            <MotionRevealGroup className="mt-4 space-y-3">
+              {filteredStudiosStores.map((item, index) => (
+                <StickyScrollCard key={item.id} top="88px" delay={0.1 + index * 0.08}>
+                  <Card className="overflow-hidden rounded-[22px] border-[#eee6db] bg-white">
+                    <CardContent className="p-0">
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.38, ease: "easeOut" }}>
+                        <Link href={`/studios-stores/${item.id}`} className="relative block h-40">
+                          <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
+                          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-semibold text-[#111318]">
+                            {item.type === "studio" ? "Studio" : "Equipment Store"}
+                          </span>
+                        </Link>
+                      </motion.div>
+                      <div className="p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-[16px] font-semibold text-[#0d0f13]">{item.name}</p>
+                            <div className="mt-1 flex items-center gap-1 text-[12px] text-[#666b75]">
+                              <MapPin className="h-3.5 w-3.5" />
+                              <span>{item.location}</span>
+                            </div>
+                            <div className="mt-2">
+                              <AvailabilityStatusBadge ownerId={String(item.id)} ownerType={item.type === "studio" ? "studio" : "store"} />
+                            </div>
                           </div>
-                          <div className="mt-2">
-                            <AvailabilityStatusBadge ownerId={String(item.id)} ownerType={item.type === "studio" ? "studio" : "store"} />
+                          {item.verified && <Badge className="bg-green-100 text-green-800">Verified</Badge>}
+                        </div>
+                          <div className="mt-2 flex items-center justify-between text-[12px]">
+                            <div className="flex items-center gap-1">
+                              <Star className="h-3.5 w-3.5 fill-current text-[#0d0f13]" />
+                              <span className="font-semibold">{item.rating}</span>
+                              <span className="text-[#666b75]">(<AnimatedCount value={item.reviews} />)</span>
+                            </div>
+                            <span className="font-semibold text-[#0d0f13]">{item.hourlyRate}</span>
                           </div>
+                        <p className="mt-2 line-clamp-2 text-[12px] text-[#666b75]">{item.description}</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {item.services.slice(0, 2).map((service, idx) => (
+                            <Badge key={`${item.id}-service-${idx}`} variant="secondary" className="text-[10px]">
+                              {service}
+                            </Badge>
+                          ))}
                         </div>
-                        {item.verified && <Badge className="bg-green-100 text-green-800">Verified</Badge>}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[12px]">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-current text-[#0d0f13]" />
-                          <span className="font-semibold">{item.rating}</span>
-                          <span className="text-[#666b75]">({item.reviews})</span>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <motion.a
+                            href={`tel:${item.contact.phone}`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.45, delay: 0.22 + index * 0.1 }}
+                          >
+                            <Button variant="outline" className="h-9 w-full rounded-full border-[#e7e0d6] bg-white text-[12px]">
+                              <Phone className="mr-1 h-3.5 w-3.5" />
+                              Call
+                            </Button>
+                          </motion.a>
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.45, delay: 0.26 + index * 0.1 }}
+                          >
+                            <Button
+                              type="button"
+                              onClick={() => setBookingItem(item)}
+                              className="h-9 w-full rounded-full bg-[#f20d14] text-[12px] text-white hover:bg-[#d80a10]"
+                            >
+                              Book
+                            </Button>
+                          </motion.div>
                         </div>
-                        <span className="font-semibold text-[#0d0f13]">{item.hourlyRate}</span>
                       </div>
-                      <p className="mt-2 line-clamp-2 text-[12px] text-[#666b75]">{item.description}</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {item.services.slice(0, 2).map((service, idx) => (
-                          <Badge key={`${item.id}-service-${idx}`} variant="secondary" className="text-[10px]">
-                            {service}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <a href={`tel:${item.contact.phone}`}>
-                          <Button variant="outline" className="h-9 w-full rounded-full border-[#e7e0d6] bg-white text-[12px]">
-                            <Phone className="mr-1 h-3.5 w-3.5" />
-                            Call
-                          </Button>
-                        </a>
-                        <a href={`mailto:${item.contact.email}`}>
-                          <Button className="h-9 w-full rounded-full bg-[#f20d14] text-[12px] text-white hover:bg-[#d80a10]">
-                            Contact
-                          </Button>
-                        </a>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </StickyScrollCard>
               ))}
-            </div>
+            </MotionRevealGroup>
 
             {filteredStudiosStores.length === 0 && (
               <div className="py-10 text-center">
@@ -226,7 +201,7 @@ export default function StudiosStoresPage() {
                 </Button>
               </div>
             )}
-          </div>
+          </MotionRevealGroup>
 
           {mobileFiltersOpen && (
             <motion.div
@@ -240,7 +215,7 @@ export default function StudiosStoresPage() {
                 initial={{ y: 40, opacity: 0.9 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 280, damping: 28 }}
-                className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t border-[#e8dfd3] bg-[#fffaf4] p-5"
+                className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t border-[#e8dfd3] bg-white p-5"
               >
                 <div className="mb-4 flex items-center justify-between">
                   <p className="text-[16px] font-semibold">Filters</p>
@@ -352,108 +327,115 @@ export default function StudiosStoresPage() {
         </div>
 
         <div className="grid gap-6">
-          {filteredStudiosStores.map((item) => (
-            <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="md:flex">
-                <div className="md:w-1/3">
-                  <div className="relative h-48 md:h-full">
-                    <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
-                    <div className="absolute top-4 left-4">
-                      <Badge
-                        variant={item.type === "studio" ? "default" : "secondary"}
-                        className="text-white border-none"
-                      >
-                        {item.type === "studio" ? "Studio" : "Equipment Store"}
-                      </Badge>
-                    </div>
-                    {item.verified && (
-                      <div className="absolute top-4 right-4">
-                        <Badge variant="success" className="text-white border-none">
-                          Verified
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <CardContent className="md:w-2/3 p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <CardTitle className="text-xl mb-2">{item.name}</CardTitle>
-                      <div className="flex items-center text-gray-600 mb-2">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        <span className="text-sm">{item.location}</span>
-                      </div>
-                      <div className="flex items-center mb-3">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                        <span className="font-medium">{item.rating}</span>
-                        <span className="text-gray-600 ml-1">({item.reviews} reviews)</span>
+          {filteredStudiosStores.map((item, index) => (
+            <StickyScrollCard key={item.id} top="116px" delay={0.08 + index * 0.06}>
+              <Card className="overflow-hidden transition-shadow hover:shadow-lg">
+                <div className="md:flex">
+                  <div className="md:w-1/3">
+                    <div className="relative h-48 md:h-full">
+                      <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
+                      <div className="absolute top-4 left-4">
                         <Badge
-                          variant={item.availability === "Available" ? "success" : "secondary"}
-                          className="ml-3 text-white border-none"
+                          variant={item.type === "studio" ? "default" : "secondary"}
+                          className="text-white border-none"
                         >
-                          {item.availability}
+                          {item.type === "studio" ? "Studio" : "Equipment Store"}
                         </Badge>
                       </div>
-                      <AvailabilityStatusBadge ownerId={String(item.id)} ownerType={item.type === "studio" ? "studio" : "store"} />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-red-600">{item.hourlyRate}</p>
-                      <p className="text-sm text-gray-600">per hour</p>
-                    </div>
-                  </div>
-
-                  <p className="text-gray-700 mb-4">{item.description}</p>
-
-                  <div className="mb-4">
-                    <h4 className="font-medium mb-2">Services:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {item.services.map((service, index) => (
-                        <Badge key={index} variant="outline">
-                          {service}
-                        </Badge>
-                      ))}
+                      {item.verified && (
+                        <div className="absolute top-4 right-4">
+                          <Badge variant="success" className="text-white border-none">
+                            Verified
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="mb-4">
-                    <h4 className="font-medium mb-2">Equipment:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {item.equipment.map((equipment, index) => (
-                        <Badge key={index} variant="secondary">
-                          {equipment}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center">
-                        <Phone className="w-4 h-4 mr-1" />
-                        <span>{item.contact.phone}</span>
+                  <CardContent className="md:w-2/3 p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <CardTitle className="text-xl mb-2">{item.name}</CardTitle>
+                        <div className="flex items-center text-gray-600 mb-2">
+                          <MapPin className="w-4 h-4 mr-1" />
+                          <span className="text-sm">{item.location}</span>
+                        </div>
+                        <div className="flex items-center mb-3">
+                          <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                          <span className="font-medium">{item.rating}</span>
+                          <span className="text-gray-600 ml-1">({item.reviews} reviews)</span>
+                          <Badge
+                            variant={item.availability === "Available" ? "success" : "secondary"}
+                            className="ml-3 text-white border-none"
+                          >
+                            {item.availability}
+                          </Badge>
+                        </div>
+                        <AvailabilityStatusBadge ownerId={String(item.id)} ownerType={item.type === "studio" ? "studio" : "store"} />
                       </div>
-                      <div className="flex items-center">
-                        <Mail className="w-4 h-4 mr-1" />
-                        <span>{item.contact.email}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Globe className="w-4 h-4 mr-1" />
-                        <span>{item.contact.website}</span>
+                      <div className="text-right">
+                        <p className="text-lg font-semibold text-red-600">{item.hourlyRate}</p>
+                        <p className="text-sm text-gray-600">per hour</p>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
-                      <Button className="bg-red-600 hover:bg-red-700" size="sm">
-                        Contact Now
-                      </Button>
+
+                    <p className="text-gray-700 mb-4">{item.description}</p>
+
+                    <div className="mb-4">
+                      <h4 className="font-medium mb-2">Services:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {item.services.map((service, index) => (
+                          <Badge key={index} variant="outline">
+                            {service}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </div>
-            </Card>
+
+                    <div className="mb-4">
+                      <h4 className="font-medium mb-2">Equipment:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {item.equipment.map((equipment, index) => (
+                          <Badge key={index} variant="secondary">
+                            {equipment}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <div className="flex items-center">
+                          <Phone className="w-4 h-4 mr-1" />
+                          <span>{item.contact.phone}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Mail className="w-4 h-4 mr-1" />
+                          <span>{item.contact.email}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Globe className="w-4 h-4 mr-1" />
+                          <span>{item.contact.website}</span>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/studios-stores/${item.id}`}>View Details</Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => setBookingItem(item)}
+                          className="bg-red-600 hover:bg-red-700"
+                          size="sm"
+                        >
+                          Book Now
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </div>
+              </Card>
+            </StickyScrollCard>
           ))}
         </div>
 
@@ -466,6 +448,27 @@ export default function StudiosStoresPage() {
         )}
       </div>
       </div>
+      {bookingItem && (
+        <HireRequestSheet
+          open={!!bookingItem}
+          onOpenChange={(open) => {
+            if (!open) setBookingItem(null)
+          }}
+          talentId={String(bookingItem.id)}
+          talentName={bookingItem.name}
+          talentType={bookingItem.type}
+          priceLabel={`${bookingStartingRate}/hr`}
+          bookingTypeOptions={getBookingOptions(bookingItem)}
+          bookingTypeLabel={bookingItem.type === "store" ? "What are you renting?" : "What are you booking?"}
+          bookingTypePlaceholder={bookingItem.type === "store" ? "Select rental type" : "Select studio booking type"}
+          durationLabel={bookingItem.type === "store" ? "How long do you need the rental?" : "How long do you need the space?"}
+          briefPlaceholder={
+            bookingItem.type === "store"
+              ? "Example: camera kit rental, two days, lights, pickup time, Johannesburg..."
+              : "Example: studio booking, all day, natural light, parking, changing room, Cape Town..."
+          }
+        />
+      )}
     </div>
   )
 }

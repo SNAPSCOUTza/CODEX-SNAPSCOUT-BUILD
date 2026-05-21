@@ -67,3 +67,88 @@ export const mockCommunityPosts: CommunityPost[] = [
     status: "published",
   },
 ]
+
+export const communitySuccessStories = [
+  {
+    name: "Thabo Mthembu",
+    role: "Director of Photography",
+    location: "Johannesburg",
+    rating: "4.9",
+    quote:
+      "Joined SnapScout 6 months ago and have been consistently booked for corporate videos. The platform helped me connect with clients who value professional experience over social media following.",
+    projects: "12 projects completed",
+  },
+  {
+    name: "Sarah van der Merwe",
+    role: "Wedding Photographer",
+    location: "Cape Town",
+    rating: "5",
+    quote:
+      "SnapScout transformed my business. I can showcase my real work and rates upfront, which attracts serious clients. Booked solid for the next 8 months.",
+    projects: "28 projects completed",
+  },
+  {
+    name: "Mandla Ndlovu",
+    role: "Sound Engineer",
+    location: "Durban",
+    rating: "4.8",
+    quote:
+      "Finally found a platform where my technical skills and equipment matter. Connected with production companies that need professional sound recording.",
+    projects: "15 projects completed",
+  },
+]
+
+export const regionalGroups = [
+  { province: "Gauteng", city: "Johannesburg & Pretoria", members: "1247 members" },
+  { province: "Western Cape", city: "Cape Town", members: "892 members" },
+  { province: "KwaZulu-Natal", city: "Durban", members: "634 members" },
+  { province: "Eastern Cape", city: "Port Elizabeth", members: "298 members" },
+  { province: "Free State", city: "Bloemfontein", members: "156 members" },
+  { province: "Limpopo", city: "Polokwane", members: "134 members" },
+  { province: "Mpumalanga", city: "Nelspruit", members: "187 members" },
+  { province: "North West", city: "Rustenburg", members: "112 members" },
+  { province: "Northern Cape", city: "Kimberley", members: "89 members" },
+]
+
+export const upcomingCommunityEvents = [
+  {
+    title: "Johannesburg Creative Meetup",
+    date: "March 15, 2026",
+    type: "Networking",
+    attending: "45 attending",
+    location: "Sandton Convention Centre",
+  },
+  {
+    title: "Cape Town Film Workshop",
+    date: "March 22, 2026",
+    type: "Workshop",
+    attending: "32 attending",
+    location: "Cape Town Film Studios",
+  },
+  {
+    title: "Durban Photography Walk",
+    date: "March 29, 2026",
+    type: "Social",
+    attending: "28 attending",
+    location: "V&A Waterfront",
+  },
+]
+
+export const communityGuidelines = [
+  {
+    title: "Be Respectful",
+    body: "Treat all community members with respect and professionalism.",
+  },
+  {
+    title: "Support Each Other",
+    body: "Share knowledge, opportunities, and help fellow creatives grow.",
+  },
+  {
+    title: "Maintain Quality",
+    body: "Share high-quality work and constructive feedback.",
+  },
+  {
+    title: "Stay Professional",
+    body: "Keep interactions professional and industry-focused.",
+  },
+]

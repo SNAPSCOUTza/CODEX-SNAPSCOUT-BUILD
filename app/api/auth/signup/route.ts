@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
+import { upsertInitialUserProfile } from "@/lib/auth/profile-bootstrap"
 import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
 
 // Initialize Resend
@@ -44,40 +45,13 @@ export async function POST(request: Request) {
 
     console.log("[v0] User created and auto-confirmed:", userData.user.id)
 
-    const baseProfile = {
-      user_id: userData.user.id,
+    const { error: profileError } = await upsertInitialUserProfile(supabaseAdmin, {
+      userId: userData.user.id,
       email,
-      full_name: display_name,
-      display_name,
-      account_type,
-      user_type: account_type,
-      bio: "",
-      profession: account_type === "scout" ? "Client" : "Creative",
-      location: "",
-      city: "",
-      profile_picture: "",
-      availability: "available",
-      availability_status: "available",
-      is_profile_visible: false,
-      skills: [],
-      portfolio_images: [],
-    }
-
-    let { error: profileError } = await supabaseAdmin.from("user_profiles").upsert(baseProfile, {
-      onConflict: "user_id",
+      displayName: display_name,
+      accountType: account_type,
+      isProfileVisible: false,
     })
-
-    // Graceful fallback for older account_type constraints in legacy schemas.
-    if (profileError?.message?.toLowerCase().includes("account_type")) {
-      const { error: fallbackError } = await supabaseAdmin.from("user_profiles").upsert(
-        {
-          ...baseProfile,
-          account_type: null,
-        },
-        { onConflict: "user_id" },
-      )
-      profileError = fallbackError
-    }
 
     if (profileError) {
       console.error("[v0] Profile creation error:", profileError.message)

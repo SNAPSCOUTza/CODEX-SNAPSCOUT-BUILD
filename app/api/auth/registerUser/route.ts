@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { upsertInitialUserProfile } from "@/lib/auth/profile-bootstrap"
 import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
 
 export async function POST(request: Request) {
@@ -39,42 +40,13 @@ export async function POST(request: Request) {
 
     console.log("[v0] RegisterUser - User created:", data.user.id)
 
-    let { error: profileError } = await supabaseAdmin.from("user_profiles").upsert(
-      {
-        user_id: data.user.id,
-        email,
-        full_name: name,
-        display_name: name,
-        account_type: user_type,
-        user_type,
-        bio: "",
-        profession: user_type === "content_creator" ? "Creative Professional" : user_type,
-        is_profile_visible: true,
-        availability: "available",
-        availability_status: "available",
-      },
-      { onConflict: "user_id" },
-    )
-
-    if (profileError?.message?.toLowerCase().includes("account_type")) {
-      const { error: fallbackError } = await supabaseAdmin.from("user_profiles").upsert(
-        {
-          user_id: data.user.id,
-          email,
-          full_name: name,
-          display_name: name,
-          account_type: null,
-          user_type,
-          bio: "",
-          profession: "Creative Professional",
-          is_profile_visible: true,
-          availability: "available",
-          availability_status: "available",
-        },
-        { onConflict: "user_id" },
-      )
-      profileError = fallbackError
-    }
+    const { error: profileError } = await upsertInitialUserProfile(supabaseAdmin, {
+      userId: data.user.id,
+      email,
+      displayName: name,
+      accountType: user_type,
+      isProfileVisible: true,
+    })
 
     if (profileError) {
       console.error("[v0] RegisterUser - Profile creation error:", profileError)

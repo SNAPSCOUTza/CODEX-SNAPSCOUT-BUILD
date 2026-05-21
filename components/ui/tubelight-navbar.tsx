@@ -11,6 +11,7 @@ interface NavItem {
   name: string
   url: string
   icon: LucideIcon
+  badgeCount?: number
 }
 
 interface NavBarProps {
@@ -65,6 +66,11 @@ export function NavBar({ items, className }: NavBarProps) {
               <span className="md:hidden">
                 <Icon size={18} strokeWidth={2.5} />
               </span>
+              {typeof item.badgeCount === "number" && item.badgeCount > 0 && (
+                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
+                  {item.badgeCount}
+                </span>
+              )}
               {isActive && (
                 <motion.div
                   layoutId="lamp"

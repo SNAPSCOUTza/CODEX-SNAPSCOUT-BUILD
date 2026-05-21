@@ -5,20 +5,10 @@ import { X, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
-
-interface PortfolioItem {
-  id: string
-  type: "image" | "video"
-  thumbnail: string
-  fullUrl?: string
-  title?: string
-  platform?: "instagram" | "youtube" | "vimeo" | "facebook" | "local"
-  duration?: number
-  link?: string
-}
+import type { LightboxPortfolioItem } from "@/types/portfolio"
 
 interface PortfolioLightboxProps {
-  items: PortfolioItem[]
+  items: LightboxPortfolioItem[]
   currentIndex: number
   onClose: () => void
   onNext: () => void
@@ -31,6 +21,8 @@ const platformColors: Record<string, string> = {
   youtube: "bg-red-500",
   vimeo: "bg-blue-500",
   facebook: "bg-blue-600",
+  imdb: "bg-amber-500",
+  external: "bg-slate-700",
   local: "bg-gray-500",
 }
 
@@ -104,23 +96,28 @@ export function PortfolioLightbox({ items, currentIndex, onClose, onNext, onPrev
       <div className="max-w-5xl w-full max-h-[90vh] relative px-16">
         {currentItem.type === "video" ? (
           <div className="aspect-video bg-black rounded-lg overflow-hidden">
-            {currentItem.platform === "youtube" && currentItem.link && (
+            {currentItem.embedUrl ? (
+              <iframe
+                src={currentItem.embedUrl}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            ) : currentItem.platform === "youtube" && currentItem.link ? (
               <iframe
                 src={`https://www.youtube.com/embed/${extractYouTubeId(currentItem.link)}?autoplay=1`}
                 className="w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
-            )}
-            {currentItem.platform === "vimeo" && currentItem.link && (
+            ) : currentItem.platform === "vimeo" && currentItem.link ? (
               <iframe
                 src={`https://player.vimeo.com/video/${extractVimeoId(currentItem.link)}?autoplay=1`}
                 className="w-full h-full"
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
               />
-            )}
-            {(currentItem.platform === "local" || !currentItem.link) && (
+            ) : (
               <video src={currentItem.fullUrl || currentItem.thumbnail} controls autoPlay className="w-full h-full" />
             )}
           </div>

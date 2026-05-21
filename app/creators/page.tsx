@@ -11,17 +11,23 @@ import Image from "next/image"
 import { motion } from "framer-motion"
 import { MessageButton } from "@/components/messaging/message-button"
 import { SaveProfileButton } from "@/components/messaging/save-profile-button"
+import { SaveToPoolButton } from "@/components/crew/SaveToPoolButton"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { mockCreators } from "@/lib/mock-data/creators-data"
 import MobileShell from "@/components/mobile/mobile-shell"
 import { AvailabilityStatusBadge } from "@/components/availability/availability-status-badge"
+import { HireRequestSheet } from "@/components/booking/hire-request-sheet"
 import type { AvailabilityOwnerType } from "@/lib/availability"
+import { AnimatedCount } from "@/components/ui/animated-count"
+import { MotionRevealGroup, MotionRevealItem, MotionRevealSolo } from "@/components/ui/motion-reveal"
+import { StickyScrollCard } from "@/components/ui/sticky-scroll-card"
 
 export default function CreatorsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [creators, setCreators] = useState<any[]>([])
+  const [hireRequestCreator, setHireRequestCreator] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const [usingMockData, setUsingMockData] = useState(false)
   const supabase = createBrowserClient()
@@ -34,37 +40,46 @@ export default function CreatorsPage() {
     try {
       setLoading(true)
       const { data, error } = await supabase
-        .from("profiles")
+        .from("user_profiles")
         .select(`
-          id, full_name, email, profession, bio, location,
-          profile_image_url, availability, pricing, skills,
-          social_links, portfolio_images, is_public, subscription_status
+          id, user_id, full_name, display_name, username, email, profession, bio, location, city, province,
+          profile_image_url, profile_picture, avatar_url, availability, availability_status, pricing,
+          hourly_rate, daily_rate, project_rate, skills, social_links, portfolio_images,
+          is_public, is_profile_visible, subscription_status, created_at
         `)
-        .eq("is_public", true)
+        .eq("is_profile_visible", true)
         .order("created_at", { ascending: false })
 
       if (error) throw error
 
-      const liveProfiles = (data || []).map((profile) => ({
-        id: profile.id,
-        user_id: profile.id,
-        display_name: profile.full_name || "Unknown",
-        full_name: profile.full_name,
-        profession: profile.profession || "Content Creator",
-        city: profile.location?.split(",")[0]?.trim() || "",
-        province: profile.location?.split(",")[1]?.trim() || "",
-        profile_picture: profile.profile_image_url,
-        bio: profile.bio,
-        availability_status: profile.availability || "Available",
-        skills: profile.skills || [],
-        specializations: profile.skills || [],
-        is_public: profile.is_public,
-        rating: 4.5 + Math.random() * 0.5,
-        reviews: Math.floor(Math.random() * 100) + 20,
-        pricing: profile.pricing,
-        portfolioImages: profile.portfolio_images || [],
-        isLiveProfile: true, // Flag to identify live profiles
-      }))
+      const liveProfiles = (data || []).map((profile: any) => {
+        const profileId = profile.user_id || profile.id
+        const location = profile.location || [profile.city, profile.province].filter(Boolean).join(", ")
+        const pricing =
+          profile.pricing ||
+          (profile.hourly_rate ? `R${profile.hourly_rate}/hr` : profile.daily_rate ? `R${profile.daily_rate}/day` : "")
+
+        return {
+          id: profileId,
+          user_id: profileId,
+          display_name: profile.display_name || profile.full_name || profile.username || "Unknown",
+          full_name: profile.full_name || profile.display_name || profile.username || "Unknown",
+          profession: profile.profession || "Content Creator",
+          city: profile.city || location?.split(",")[0]?.trim() || "",
+          province: profile.province || location?.split(",")[1]?.trim() || "",
+          profile_picture: profile.profile_image_url || profile.profile_picture || profile.avatar_url || "",
+          bio: profile.bio,
+          availability_status: profile.availability_status || profile.availability || "Available",
+          skills: profile.skills || [],
+          specializations: profile.skills || [],
+          is_public: profile.is_profile_visible ?? profile.is_public ?? true,
+          rating: 4.5 + Math.random() * 0.5,
+          reviews: Math.floor(Math.random() * 100) + 20,
+          pricing,
+          portfolioImages: profile.portfolio_images || [],
+          isLiveProfile: true, // Flag to identify live profiles
+        }
+      })
 
       // Live profiles appear first, then mock profiles
       const combinedProfiles = [...liveProfiles, ...mockCreators.map((c) => ({ ...c, isLiveProfile: false }))]
@@ -123,13 +138,15 @@ export default function CreatorsPage() {
           }
         >
           {usingMockData && (
-            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-              Showing mock profiles while live creator accounts are loading.
-            </div>
+            <MotionRevealSolo className="mb-4">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                Showing mock profiles while live creator accounts are loading.
+              </div>
+            </MotionRevealSolo>
           )}
 
-          <div className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-[#fffcf7] px-3 py-3">
+          <MotionRevealGroup className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
+            <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
               <Search className="h-4 w-4 text-[#73757d]" />
               <Input
                 placeholder="Search creatives..."
@@ -146,18 +163,19 @@ export default function CreatorsPage() {
               >
                 <SlidersHorizontal className="h-4 w-4 text-[#111318]" />
               </motion.button>
-            </div>
+            </MotionRevealItem>
 
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <MotionRevealItem className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
               {[
                 { label: "All", value: "" },
                 { label: "Photographers", value: "photographer" },
                 { label: "Videographers", value: "videographer" },
               ].map((item) => (
-                <button
+                <motion.button
                   key={item.label}
                   type="button"
                   onClick={() => setFilterType(item.value)}
+                  whileTap={{ scale: 0.96 }}
                   className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-medium ${
                     filterType === item.value
                       ? "border-[#0d0f13] bg-[#0d0f13] text-white"
@@ -165,22 +183,25 @@ export default function CreatorsPage() {
                   }`}
                 >
                   {item.label}
-                </button>
+                </motion.button>
               ))}
-            </div>
+            </MotionRevealItem>
 
             <div className="mt-4 space-y-4">
-              {filteredCreators.map((creator) => (
-                <Card key={creator.id} className="overflow-hidden rounded-[26px] border-[#ece4da] bg-[#fffdf9] shadow-[0_16px_34px_rgba(0,0,0,0.05)]">
+              {filteredCreators.map((creator, index) => (
+                <StickyScrollCard key={creator.id} top="88px" delay={0.1 + index * 0.08}>
+                <Card className="overflow-hidden rounded-[26px] border-[#ece4da] bg-white shadow-[0_16px_34px_rgba(0,0,0,0.05)]">
                   <CardContent className="p-3">
-                    <Link href={`/creators/${creator.user_id}`} className="relative block h-[176px] w-full overflow-hidden rounded-[20px]">
-                      <Image
-                        src={(creator.portfolioImages && creator.portfolioImages[0]) || creator.profile_picture || "/placeholder.svg?height=176&width=330"}
-                        alt={creator.display_name || creator.full_name}
-                        fill
-                        className="object-cover"
-                      />
-                    </Link>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.38, ease: "easeOut" }}>
+                      <Link href={`/creators/${creator.user_id}`} className="relative block h-[176px] w-full overflow-hidden rounded-[20px]">
+                        <Image
+                          src={(creator.portfolioImages && creator.portfolioImages[0]) || creator.profile_picture || "/placeholder.svg?height=176&width=330"}
+                          alt={creator.display_name || creator.full_name}
+                          fill
+                          className="object-cover"
+                        />
+                      </Link>
+                    </motion.div>
                     <div className="mt-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -205,16 +226,22 @@ export default function CreatorsPage() {
                       </div>
 
                       <div className="mt-3 grid grid-cols-3 gap-2">
-                        <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
-                          <p className="text-[18px] font-semibold leading-none text-[#111318]">{Math.round((creator.reviews || 40) + 80)}+</p>
+                        <div className="rounded-2xl border border-[#eef1f6] bg-white px-2 py-2 text-center">
+                          <p className="text-[18px] font-semibold leading-none text-[#111318]">
+                            <AnimatedCount value={Math.round((creator.reviews || 40) + 80)} suffix="+" />
+                          </p>
                           <p className="mt-1 text-[11px] text-[#676b75]">Projects</p>
                         </div>
-                        <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
-                          <p className="text-[18px] font-semibold leading-none text-[#111318]">{Math.max(2, Math.round((creator.rating || 4.8) - 0.5))}</p>
+                        <div className="rounded-2xl border border-[#eef1f6] bg-white px-2 py-2 text-center">
+                          <p className="text-[18px] font-semibold leading-none text-[#111318]">
+                            <AnimatedCount value={Math.max(2, Math.round((creator.rating || 4.8) - 0.5))} />
+                          </p>
                           <p className="mt-1 text-[11px] text-[#676b75]">Years</p>
                         </div>
-                        <div className="rounded-2xl bg-[#f6f1e8] px-2 py-2 text-center">
-                          <p className="text-[18px] font-semibold leading-none text-[#111318]">{Math.min(99, Math.round((creator.rating || 4.8) * 20))}%</p>
+                        <div className="rounded-2xl border border-[#eef1f6] bg-white px-2 py-2 text-center">
+                          <p className="text-[18px] font-semibold leading-none text-[#111318]">
+                            <AnimatedCount value={Math.min(99, Math.round((creator.rating || 4.8) * 20))} suffix="%" />
+                          </p>
                           <p className="mt-1 text-[11px] text-[#676b75]">Response</p>
                         </div>
                       </div>
@@ -239,16 +266,32 @@ export default function CreatorsPage() {
                             variant="outline"
                             size="icon"
                           />
-                          <Link href={`/creators/${creator.user_id}`} className="w-[70%]">
-                            <Button className="h-12 w-full rounded-full bg-[#ef1218] text-[15px] font-semibold text-white hover:bg-[#d90d12]">
+                          <SaveToPoolButton
+                            profileId={creator.user_id || creator.id}
+                            profileName={creator.display_name || creator.full_name}
+                            variant="outline"
+                            size="icon"
+                          />
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.45, delay: 0.24 + index * 0.1 }}
+                            className="w-[70%]"
+                          >
+                            <Button
+                              type="button"
+                              onClick={() => setHireRequestCreator(creator)}
+                              className="h-12 w-full rounded-full bg-[#ef1218] text-[15px] font-semibold text-white hover:bg-[#d90d12]"
+                            >
                               Hire
                             </Button>
-                          </Link>
+                          </motion.div>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+                </StickyScrollCard>
               ))}
             </div>
 
@@ -260,7 +303,7 @@ export default function CreatorsPage() {
                 </Button>
               </div>
             )}
-          </div>
+          </MotionRevealGroup>
 
           {mobileFiltersOpen && (
             <motion.div
@@ -274,7 +317,7 @@ export default function CreatorsPage() {
                 initial={{ y: 40, opacity: 0.9 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 280, damping: 28 }}
-                className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t border-[#e8dfd3] bg-[#fffaf4] p-5"
+                className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t border-[#e8dfd3] bg-white p-5"
               >
                 <div className="mb-4 flex items-center justify-between">
                   <p className="text-[16px] font-semibold">Filter Creatives</p>
@@ -291,7 +334,11 @@ export default function CreatorsPage() {
                 <div className="grid gap-2">
                   <Button
                     variant={filterType === "" ? "default" : "outline"}
-                    className={filterType === "" ? "bg-[#f20d14] text-white hover:bg-[#d80a10]" : "border-[#e7e0d6] bg-white"}
+                    className={
+                      filterType === ""
+                        ? "h-12 rounded-full bg-[#f20d14] text-white shadow-sm transition-transform active:scale-[0.98] hover:bg-[#d80a10]"
+                        : "h-12 rounded-full border-[#e7e0d6] bg-white shadow-sm transition-transform active:scale-[0.98]"
+                    }
                     onClick={() => {
                       setFilterType("")
                       setMobileFiltersOpen(false)
@@ -302,7 +349,9 @@ export default function CreatorsPage() {
                   <Button
                     variant={filterType === "photographer" ? "default" : "outline"}
                     className={
-                      filterType === "photographer" ? "bg-[#f20d14] text-white hover:bg-[#d80a10]" : "border-[#e7e0d6] bg-white"
+                      filterType === "photographer"
+                        ? "h-12 rounded-full bg-[#f20d14] text-white shadow-sm transition-transform active:scale-[0.98] hover:bg-[#d80a10]"
+                        : "h-12 rounded-full border-[#e7e0d6] bg-white shadow-sm transition-transform active:scale-[0.98]"
                     }
                     onClick={() => {
                       setFilterType("photographer")
@@ -314,7 +363,9 @@ export default function CreatorsPage() {
                   <Button
                     variant={filterType === "videographer" ? "default" : "outline"}
                     className={
-                      filterType === "videographer" ? "bg-[#f20d14] text-white hover:bg-[#d80a10]" : "border-[#e7e0d6] bg-white"
+                      filterType === "videographer"
+                        ? "h-12 rounded-full bg-[#f20d14] text-white shadow-sm transition-transform active:scale-[0.98] hover:bg-[#d80a10]"
+                        : "h-12 rounded-full border-[#e7e0d6] bg-white shadow-sm transition-transform active:scale-[0.98]"
                     }
                     onClick={() => {
                       setFilterType("videographer")
@@ -440,8 +491,9 @@ export default function CreatorsPage() {
 
         {/* Creator Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCreators.map((creator) => (
-            <Card key={creator.id} className="hover:shadow-lg transition-shadow duration-300 overflow-hidden">
+          {filteredCreators.map((creator, index) => (
+            <StickyScrollCard key={creator.id} top="116px" delay={0.08 + index * 0.06}>
+            <Card className="hover:shadow-lg transition-shadow duration-300 overflow-hidden">
               {creator.portfolioImages && creator.portfolioImages.length > 0 && (
                 <div className="grid grid-cols-4 gap-0.5 h-24">
                   {creator.portfolioImages.slice(0, 4).map((img: string, idx: number) => (
@@ -538,6 +590,12 @@ export default function CreatorsPage() {
                         variant="ghost"
                         size="icon"
                       />
+                      <SaveToPoolButton
+                        profileId={creator.user_id || creator.id}
+                        profileName={creator.display_name || creator.full_name}
+                        variant="outline"
+                        size="icon"
+                      />
                       <Link href={`/creators/${creator.user_id}`} className="flex-1">
                         <Button variant="outline" className="w-full bg-card text-card-foreground hover:bg-accent">
                           View Profile
@@ -554,6 +612,7 @@ export default function CreatorsPage() {
                 </div>
               </CardContent>
             </Card>
+            </StickyScrollCard>
           ))}
         </div>
 
@@ -570,6 +629,18 @@ export default function CreatorsPage() {
         )}
       </div>
       </div>
+      {hireRequestCreator && (
+        <HireRequestSheet
+          open={!!hireRequestCreator}
+          onOpenChange={(open) => {
+            if (!open) setHireRequestCreator(null)
+          }}
+          talentId={hireRequestCreator.user_id || hireRequestCreator.id}
+          talentName={hireRequestCreator.display_name || hireRequestCreator.full_name || "Creative"}
+          talentType="creator"
+          priceLabel={hireRequestCreator.pricing || "R950/hr"}
+        />
+      )}
     </div>
   )
 }

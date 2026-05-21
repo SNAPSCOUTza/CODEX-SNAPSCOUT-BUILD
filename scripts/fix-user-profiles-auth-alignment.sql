@@ -16,6 +16,7 @@ alter table public.user_profiles
   add column if not exists email text,
   add column if not exists display_name text,
   add column if not exists profile_image_url text,
+  add column if not exists availability_status text default 'available',
   add column if not exists username text;
 
 update public.user_profiles

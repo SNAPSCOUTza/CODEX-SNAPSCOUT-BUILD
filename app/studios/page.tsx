@@ -27,6 +27,9 @@ import { SaveProfileButton } from "@/components/messaging/save-profile-button"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { mockStudios, type StudioData } from "@/lib/mock-data/studios-data"
 import { AvailabilityStatusBadge } from "@/components/availability/availability-status-badge"
+import { AnimatedCount } from "@/components/ui/animated-count"
+import { MotionRevealGroup, MotionRevealItem, MotionRevealSolo } from "@/components/ui/motion-reveal"
+import { StickyScrollCard } from "@/components/ui/sticky-scroll-card"
 
 export default function StudiosPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -44,41 +47,58 @@ export default function StudiosPage() {
       try {
         setLoading(true)
         const { data, error } = await supabase
-          .from("profiles")
+          .from("user_profiles")
           .select(`
-            id, full_name, email, profession, bio, location,
-            profile_image_url, availability, pricing, skills,
-            social_links, portfolio_images, is_public
+            id, user_id, full_name, display_name, username, email, account_type, profession, bio,
+            location, city, province, profile_image_url, profile_picture, avatar_url,
+            availability, availability_status, pricing, hourly_rate, daily_rate, project_rate,
+            skills, social_links, portfolio_images, is_public, is_profile_visible, created_at
           `)
-          .eq("is_public", true)
-          .in("profession", ["Studio", "Equipment Store", "studio", "equipment_store", "Store"])
+          .eq("is_profile_visible", true)
           .order("created_at", { ascending: false })
 
         if (error) throw error
 
-        if (!data || data.length === 0) {
+        const studioProfiles = (data || []).filter((profile: any) => {
+          const searchableType = `${profile.account_type || ""} ${profile.profession || ""}`.toLowerCase()
+          return searchableType.includes("studio") || searchableType.includes("store") || searchableType.includes("equipment")
+        })
+
+        if (studioProfiles.length === 0) {
           setStudios(mockStudios)
           setUseMockData(true)
           return
         }
 
-        const transformed: StudioData[] = data.map((profile) => ({
-          id: profile.id,
-          user_profile_id: profile.id,
-          business_name: profile.full_name || "Unnamed Studio",
-          type: profile.profession?.toLowerCase().includes("store") ? "equipment_store" : "studio",
-          location: profile.location || "",
-          city: profile.location?.split(",")[0]?.trim() || "",
-          province: profile.location?.split(",")[1]?.trim() || "",
+        const transformed: StudioData[] = studioProfiles.map((profile: any) => {
+          const profileId = profile.user_id || profile.id
+          const location = profile.location || [profile.city, profile.province].filter(Boolean).join(", ")
+          const studioType: StudioData["type"] = `${profile.account_type || profile.profession || ""}`
+            .toLowerCase()
+            .includes("store")
+            ? "equipment_store"
+            : "studio"
+          const priceRange =
+            profile.pricing ||
+            (profile.hourly_rate ? `R${profile.hourly_rate}/hr` : profile.daily_rate ? `R${profile.daily_rate}/day` : "")
+
+          return {
+          id: profileId,
+          user_profile_id: profileId,
+          business_name: profile.display_name || profile.full_name || profile.username || "Unnamed Studio",
+          type: studioType,
+          location,
+          city: profile.city || location?.split(",")[0]?.trim() || "",
+          province: profile.province || location?.split(",")[1]?.trim() || "",
           bio: profile.bio || "",
           services: profile.skills || [],
           equipment: [],
-          profile_picture: profile.profile_image_url || "",
+          profile_picture: profile.profile_image_url || profile.profile_picture || profile.avatar_url || "",
           gallery_images: profile.portfolio_images || [],
           rating: 4.7,
           total_reviews: 18,
-          price_range: profile.pricing || "",
-          availability_status: profile.availability || "Available",
+          price_range: priceRange,
+          availability_status: profile.availability_status || profile.availability || "Available",
           is_verified: true,
           featured: false,
           phone: "",
@@ -94,7 +114,8 @@ export default function StudiosPage() {
             saturday: "Closed",
             sunday: "Closed",
           },
-        }))
+        }
+        })
 
         setStudios(transformed)
         setUseMockData(false)
@@ -147,13 +168,15 @@ export default function StudiosPage() {
           }
         >
           {useMockData && (
-            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-              Showing mock studios while live studio data loads.
-            </div>
+            <MotionRevealSolo className="mb-4">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                Showing mock studios while live studio data loads.
+              </div>
+            </MotionRevealSolo>
           )}
 
-          <div className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-[#fffcf7] px-3 py-3">
+          <MotionRevealGroup className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
+            <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
               <Search className="h-4 w-4 text-[#73757d]" />
               <Input
                 placeholder="Search studios, stores, services..."
@@ -170,18 +193,19 @@ export default function StudiosPage() {
               >
                 <SlidersHorizontal className="h-4 w-4 text-[#111318]" />
               </motion.button>
-            </div>
+            </MotionRevealItem>
 
-            <div className="mt-3 flex gap-2">
+            <MotionRevealItem className="mt-3 flex gap-2">
               {[
                 { label: "All", value: "all" },
                 { label: "Studios", value: "studio" },
                 { label: "Stores", value: "equipment_store" },
               ].map((chip) => (
-                <button
+                <motion.button
                   key={chip.value}
                   type="button"
                   onClick={() => setTypeFilter(chip.value)}
+                  whileTap={{ scale: 0.96 }}
                   className={`rounded-full border px-3 py-1.5 text-[12px] font-medium ${
                     typeFilter === chip.value
                       ? "border-[#0d0f13] bg-[#0d0f13] text-white"
@@ -189,92 +213,98 @@ export default function StudiosPage() {
                   }`}
                 >
                   {chip.label}
-                </button>
+                </motion.button>
               ))}
-            </div>
+            </MotionRevealItem>
 
-            <div className="mt-4 space-y-3">
-              {filteredStudios.map((studio) => (
-                <Card key={studio.id} className="overflow-hidden rounded-[22px] border-[#eee6db] bg-[#fffdf9]">
-                  <CardContent className="p-0">
-                    <div className="relative h-40">
-                      <Image
-                        src={studio.profile_picture || "/placeholder.svg?height=160&width=320"}
-                        alt={studio.business_name}
-                        fill
-                        className="object-cover"
-                      />
-                      <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-semibold text-[#111318]">
-                        {studio.type === "studio" ? "Studio" : "Equipment Store"}
-                      </span>
-                    </div>
-                    <div className="p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[16px] font-semibold text-[#0d0f13]">{studio.business_name}</p>
-                          <div className="mt-1 flex items-center gap-1 text-[12px] text-[#666b75]">
-                            <MapPin className="h-3.5 w-3.5" />
-                            <span>
-                              {studio.city}, {studio.province}
-                            </span>
+            <MotionRevealGroup className="mt-4 space-y-3">
+              {filteredStudios.map((studio, index) => (
+                <StickyScrollCard key={studio.id} top="88px" delay={0.1 + index * 0.08}>
+                  <MotionRevealItem>
+                    <Card className="overflow-hidden rounded-[22px] border-[#eee6db] bg-white">
+                      <CardContent className="p-0">
+                        <motion.div className="relative h-40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.38, ease: "easeOut" }}>
+                          <Image
+                            src={studio.profile_picture || "/placeholder.svg?height=160&width=320"}
+                            alt={studio.business_name}
+                            fill
+                            className="object-cover"
+                          />
+                          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[11px] font-semibold text-[#111318]">
+                            {studio.type === "studio" ? "Studio" : "Equipment Store"}
+                          </span>
+                        </motion.div>
+                        <div className="p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-[16px] font-semibold text-[#0d0f13]">{studio.business_name}</p>
+                              <div className="mt-1 flex items-center gap-1 text-[12px] text-[#666b75]">
+                                <MapPin className="h-3.5 w-3.5" />
+                                <span>
+                                  {studio.city}, {studio.province}
+                                </span>
+                              </div>
+                              <div className="mt-2">
+                                <AvailabilityStatusBadge ownerId={studio.user_profile_id || studio.id} ownerType={studio.type === "studio" ? "studio" : "store"} />
+                              </div>
+                            </div>
+                            <SaveProfileButton profileId={studio.user_profile_id} profileName={studio.business_name} size="sm" />
                           </div>
-                          <div className="mt-2">
-                            <AvailabilityStatusBadge ownerId={studio.user_profile_id || studio.id} ownerType={studio.type === "studio" ? "studio" : "store"} />
+                          <div className="mt-2 flex items-center justify-between text-[12px]">
+                            <div className="flex items-center gap-1">
+                              <Star className="h-3.5 w-3.5 fill-current text-[#0d0f13]" />
+                              <span className="font-semibold">{studio.rating}</span>
+                              <span className="text-[#666b75]">(<AnimatedCount value={studio.total_reviews || 0} />)</span>
+                            </div>
+                            <span className="font-semibold text-[#0d0f13]">{studio.price_range || "Rate on request"}</span>
                           </div>
-                        </div>
-                        <SaveProfileButton profileId={studio.user_profile_id} profileName={studio.business_name} size="sm" />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[12px]">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3.5 w-3.5 fill-current text-[#0d0f13]" />
-                          <span className="font-semibold">{studio.rating}</span>
-                          <span className="text-[#666b75]">({studio.total_reviews})</span>
-                        </div>
-                        <span className="font-semibold text-[#0d0f13]">{studio.price_range || "Rate on request"}</span>
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-[12px] text-[#666b75]">{studio.bio}</p>
+                          <p className="mt-2 line-clamp-2 text-[12px] text-[#666b75]">{studio.bio}</p>
 
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {studio.services.slice(0, 3).map((service, idx) => (
-                          <Badge key={`${studio.id}-service-${idx}`} variant="secondary" className="text-[10px]">
-                            {service}
-                          </Badge>
-                        ))}
-                      </div>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {studio.services.slice(0, 3).map((service, idx) => (
+                              <Badge key={`${studio.id}-service-${idx}`} variant="secondary" className="text-[10px]">
+                                {service}
+                              </Badge>
+                            ))}
+                          </div>
 
-                      <div className="mt-3 flex gap-2">
-                        <Button
-                          variant="outline"
-                          className="h-9 flex-1 rounded-full border-[#e7e0d6] bg-white text-[12px]"
-                          onClick={() => setExpandedId((prev) => (prev === studio.id ? null : studio.id))}
-                        >
-                          {expandedId === studio.id ? "Hide Details" : "View Details"}
-                        </Button>
-                        <MessageButton
-                          recipientId={studio.user_profile_id}
-                          recipientName={studio.business_name}
-                          className="h-9 rounded-full bg-[#f20d14] px-4 text-[12px] text-white hover:bg-[#d80a10]"
-                        >
-                          Contact
-                        </MessageButton>
-                      </div>
+                          <div className="mt-3 flex gap-2">
+                            <motion.div className="flex-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
+                            <Button
+                              variant="outline"
+                              className="h-9 w-full rounded-full border-[#e7e0d6] bg-white text-[12px]"
+                              onClick={() => setExpandedId((prev) => (prev === studio.id ? null : studio.id))}
+                            >
+                              {expandedId === studio.id ? "Hide Details" : "View Details"}
+                            </Button>
+                            </motion.div>
+                            <MessageButton
+                              recipientId={studio.user_profile_id}
+                              recipientName={studio.business_name}
+                              className="h-9 rounded-full bg-[#f20d14] px-4 text-[12px] text-white hover:bg-[#d80a10]"
+                            >
+                              Contact
+                            </MessageButton>
+                          </div>
 
-                      {expandedId === studio.id && (
-                        <div className="mt-3 rounded-2xl border border-[#ece4da] bg-white p-3 text-[12px] text-[#666b75]">
-                          <p>{studio.email || "No email listed"}</p>
-                          <p>{studio.phone || "No phone listed"}</p>
-                          {studio.website ? (
-                            <Link href={`https://${studio.website}`} className="text-[#f20d14]">
-                              {studio.website}
-                            </Link>
-                          ) : null}
+                          {expandedId === studio.id && (
+                            <div className="mt-3 rounded-2xl border border-[#ece4da] bg-white p-3 text-[12px] text-[#666b75]">
+                              <p>{studio.email || "No email listed"}</p>
+                              <p>{studio.phone || "No phone listed"}</p>
+                              {studio.website ? (
+                                <Link href={`https://${studio.website}`} className="text-[#f20d14]">
+                                  {studio.website}
+                                </Link>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </CardContent>
+                    </Card>
+                  </MotionRevealItem>
+                </StickyScrollCard>
               ))}
-            </div>
+            </MotionRevealGroup>
 
             {filteredStudios.length === 0 && (
               <div className="py-10 text-center">
@@ -292,7 +322,7 @@ export default function StudiosPage() {
                 </Button>
               </div>
             )}
-          </div>
+          </MotionRevealGroup>
 
           {mobileFiltersOpen && (
             <motion.div
@@ -306,7 +336,7 @@ export default function StudiosPage() {
                 initial={{ y: 40, opacity: 0.9 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 280, damping: 28 }}
-                className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t border-[#e8dfd3] bg-[#fffaf4] p-5"
+                className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t border-[#e8dfd3] bg-white p-5"
               >
                 <div className="mb-4 flex items-center justify-between">
                   <p className="text-[16px] font-semibold">Filters</p>
@@ -414,91 +444,93 @@ export default function StudiosPage() {
           </div>
 
           <div className="space-y-5">
-            {filteredStudios.map((studio) => (
-              <Card key={studio.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex flex-col md:flex-row">
-                    <div className="relative h-52 w-full shrink-0 md:w-80">
-                      <Image
-                        src={studio.profile_picture || "/placeholder.svg?height=200&width=320"}
-                        alt={studio.business_name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 p-6">
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-xl font-semibold">{studio.business_name}</h3>
-                          <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span>
-                              {studio.city}, {studio.province}
-                            </span>
+            {filteredStudios.map((studio, index) => (
+              <StickyScrollCard key={studio.id} top="116px" delay={0.08 + index * 0.06}>
+                <Card className="overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="relative h-52 w-full shrink-0 md:w-80">
+                        <Image
+                          src={studio.profile_picture || "/placeholder.svg?height=200&width=320"}
+                          alt={studio.business_name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 p-6">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-xl font-semibold">{studio.business_name}</h3>
+                            <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                              <MapPin className="h-4 w-4" />
+                              <span>
+                                {studio.city}, {studio.province}
+                              </span>
+                            </div>
                           </div>
+                          <SaveProfileButton profileId={studio.user_profile_id} profileName={studio.business_name} size="sm" />
                         </div>
-                        <SaveProfileButton profileId={studio.user_profile_id} profileName={studio.business_name} size="sm" />
+
+                        <div className="mb-3 flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-current text-yellow-500" />
+                          <span className="font-semibold">{studio.rating}</span>
+                          <span className="text-muted-foreground">({studio.total_reviews} reviews)</span>
+                        </div>
+                        <AvailabilityStatusBadge ownerId={studio.user_profile_id || studio.id} ownerType={studio.type === "studio" ? "studio" : "store"} />
+                        <span className="font-semibold">{studio.price_range || "Rate on request"}</span>
                       </div>
 
-                      <div className="mb-3 flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-current text-yellow-500" />
-                        <span className="font-semibold">{studio.rating}</span>
-                        <span className="text-muted-foreground">({studio.total_reviews} reviews)</span>
-                      </div>
-                      <AvailabilityStatusBadge ownerId={studio.user_profile_id || studio.id} ownerType={studio.type === "studio" ? "studio" : "store"} />
-                      <span className="font-semibold">{studio.price_range || "Rate on request"}</span>
-                    </div>
+                        <p className="mb-3 text-sm text-muted-foreground">{studio.bio}</p>
 
-                      <p className="mb-3 text-sm text-muted-foreground">{studio.bio}</p>
+                        <div className="mb-4 flex flex-wrap gap-2">
+                          {studio.services.slice(0, 5).map((service, idx) => (
+                            <Badge key={`${studio.id}-desktop-service-${idx}`} variant="secondary">
+                              {service}
+                            </Badge>
+                          ))}
+                        </div>
 
-                      <div className="mb-4 flex flex-wrap gap-2">
-                        {studio.services.slice(0, 5).map((service, idx) => (
-                          <Badge key={`${studio.id}-desktop-service-${idx}`} variant="secondary">
-                            {service}
-                          </Badge>
-                        ))}
-                      </div>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                          {studio.phone && (
+                            <a href={`tel:${studio.phone}`} className="flex items-center gap-1 hover:text-foreground">
+                              <Phone className="h-4 w-4" />
+                              {studio.phone}
+                            </a>
+                          )}
+                          {studio.email && (
+                            <a href={`mailto:${studio.email}`} className="flex items-center gap-1 hover:text-foreground">
+                              <Mail className="h-4 w-4" />
+                              {studio.email}
+                            </a>
+                          )}
+                          {studio.website && (
+                            <a
+                              href={`https://${studio.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 hover:text-foreground"
+                            >
+                              <Globe className="h-4 w-4" />
+                              {studio.website}
+                            </a>
+                          )}
+                        </div>
 
-                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                        {studio.phone && (
-                          <a href={`tel:${studio.phone}`} className="flex items-center gap-1 hover:text-foreground">
-                            <Phone className="h-4 w-4" />
-                            {studio.phone}
-                          </a>
-                        )}
-                        {studio.email && (
-                          <a href={`mailto:${studio.email}`} className="flex items-center gap-1 hover:text-foreground">
-                            <Mail className="h-4 w-4" />
-                            {studio.email}
-                          </a>
-                        )}
-                        {studio.website && (
-                          <a
-                            href={`https://${studio.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 hover:text-foreground"
+                        <div className="mt-4">
+                          <MessageButton
+                            recipientId={studio.user_profile_id}
+                            recipientName={studio.business_name}
+                            className="bg-primary text-primary-foreground hover:bg-primary/90"
                           >
-                            <Globe className="h-4 w-4" />
-                            {studio.website}
-                          </a>
-                        )}
-                      </div>
-
-                      <div className="mt-4">
-                        <MessageButton
-                          recipientId={studio.user_profile_id}
-                          recipientName={studio.business_name}
-                          className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          Contact Now
-                        </MessageButton>
+                            Contact Now
+                          </MessageButton>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </StickyScrollCard>
             ))}
           </div>
 

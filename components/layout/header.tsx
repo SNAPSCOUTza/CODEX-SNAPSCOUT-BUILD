@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Heart,
   Bell,
+  FolderKanban,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { NavBar } from "@/components/ui/tubelight-navbar"
@@ -29,7 +30,29 @@ import { CommunityNavLink } from "@/components/community/community-nav-link"
 export default function Header() {
   const { user, profile, isLoading, signOut: handleAuthSignOut } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [crewPoolCount, setCrewPoolCount] = useState(0)
   const router = useRouter()
+
+  useEffect(() => {
+    if (!user) {
+      setCrewPoolCount(0)
+      return
+    }
+
+    let active = true
+    fetch("/api/crew-pools", { credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (active) setCrewPoolCount(Array.isArray(payload?.pools) ? payload.pools.length : 0)
+      })
+      .catch(() => {
+        if (active) setCrewPoolCount(0)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [user])
 
   const handleSignOut = async () => {
     try {
@@ -135,7 +158,9 @@ export default function Header() {
     )
   }
 
-  const navigationItems = getNavigationItems()
+  const navigationItems = user
+    ? [...getNavigationItems(), { name: "Crew Pools", url: "/crew-pools", icon: FolderKanban, badgeCount: crewPoolCount }]
+    : getNavigationItems()
 
   const toolbarItems = user
     ? [
@@ -149,6 +174,7 @@ export default function Header() {
 
   const actionItems = user
     ? [
+        { name: "Crew Pools", url: "/crew-pools", icon: FolderKanban, badgeCount: crewPoolCount },
         { name: "Messages", url: "/messages", icon: MessageCircle },
         { name: "Saved Profiles", url: "/saved-profiles", icon: Heart },
         { name: "Dashboard", url: getDashboardLink(), icon: User },

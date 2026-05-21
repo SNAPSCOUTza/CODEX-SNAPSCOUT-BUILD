@@ -139,6 +139,53 @@ export interface Database {
           // ... other optional fields
         }
       }
+      portfolio_items: {
+        Row: {
+          id: string
+          user_id: string
+          source_platform: "local" | "instagram" | "facebook" | "youtube" | "vimeo" | "imdb" | "external"
+          media_type: "image" | "video" | "embed" | "external"
+          source_url: string | null
+          thumbnail_url: string | null
+          full_media_url: string | null
+          embed_url: string | null
+          title: string | null
+          caption: string | null
+          sort_order: number | null
+          is_visible: boolean
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          source_platform?: "local" | "instagram" | "facebook" | "youtube" | "vimeo" | "imdb" | "external"
+          media_type?: "image" | "video" | "embed" | "external"
+          source_url?: string | null
+          thumbnail_url?: string | null
+          full_media_url?: string | null
+          embed_url?: string | null
+          title?: string | null
+          caption?: string | null
+          sort_order?: number | null
+          is_visible?: boolean
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          source_platform?: "local" | "instagram" | "facebook" | "youtube" | "vimeo" | "imdb" | "external"
+          media_type?: "image" | "video" | "embed" | "external"
+          source_url?: string | null
+          thumbnail_url?: string | null
+          full_media_url?: string | null
+          embed_url?: string | null
+          title?: string | null
+          caption?: string | null
+          sort_order?: number | null
+          is_visible?: boolean
+          updated_at?: string | null
+        }
+      }
       projects: {
         Row: {
           created_at: string

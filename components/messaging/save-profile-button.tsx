@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from "react"
 import { Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 interface SaveProfileButtonProps {
   profileId: string
   profileName: string
   variant?: "default" | "outline" | "ghost"
   size?: "default" | "sm" | "lg" | "icon"
+  className?: string
 }
 
 export function SaveProfileButton({
@@ -17,6 +19,7 @@ export function SaveProfileButton({
   profileName,
   variant = "ghost",
   size = "icon",
+  className,
 }: SaveProfileButtonProps) {
   const [isSaved, setIsSaved] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -88,7 +91,7 @@ export function SaveProfileButton({
       size={size}
       onClick={handleToggleSave}
       disabled={isLoading}
-      className={`${isSaved ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+      className={cn(isSaved ? "text-primary" : "text-muted-foreground", "hover:text-primary", className)}
       aria-label={isSaved ? `Remove ${profileName} from favorites` : `Save ${profileName} to favorites`}
     >
       <Heart className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />

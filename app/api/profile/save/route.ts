@@ -70,6 +70,9 @@ export async function POST(request: Request) {
       instagram: socialLinks.instagram || profileData.instagram || null,
       linkedin: socialLinks.linkedin || profileData.linkedin || null,
       youtube: socialLinks.youtube || profileData.youtube || null,
+      facebook: socialLinks.facebook || profileData.facebook || null,
+      vimeo: socialLinks.vimeo || profileData.vimeo || null,
+      imdb_profile: socialLinks.imdb || socialLinks.imdb_profile || profileData.imdb || profileData.imdb_profile || null,
       website: socialLinks.website || profileData.website || null,
       portfolio_images: profileData.portfolio_images || [],
       skills: profileData.skills || [],
@@ -92,6 +95,22 @@ export async function POST(request: Request) {
     // Graceful fallback for legacy account_type constraints.
     if (error?.message?.toLowerCase().includes("account_type")) {
       const retryPayload = { ...dataToSave, account_type: null }
+      const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
+      data = retry.data
+      error = retry.error
+    }
+
+    // Graceful fallback for databases that do not yet have availability_status.
+    if (error?.message?.toLowerCase().includes("availability_status")) {
+      const { availability_status, ...retryPayload } = dataToSave
+      const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
+      data = retry.data
+      error = retry.error
+    }
+
+    // Graceful fallback for databases that do not yet have new social portfolio columns.
+    if (error?.message?.toLowerCase().includes("facebook") || error?.message?.toLowerCase().includes("vimeo") || error?.message?.toLowerCase().includes("imdb_profile")) {
+      const { facebook, vimeo, imdb_profile, ...retryPayload } = dataToSave
       const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
       data = retry.data
       error = retry.error

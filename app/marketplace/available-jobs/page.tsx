@@ -180,17 +180,29 @@ export default function AvailableJobsPage() {
         // Fetch client profiles separately for each unique client_id
         const clientIds = [...new Set(jobsData.map((job) => job.client_id).filter(Boolean))]
 
-        const { data: clientsData, error: clientsError } = await supabase
-          .from("profiles")
-          .select("id, full_name, profile_image_url")
-          .in("id", clientIds)
+        const { data: clientsData, error: clientsError } =
+          clientIds.length > 0
+            ? await supabase
+                .from("user_profiles")
+                .select("id, user_id, full_name, display_name, username, profile_image_url, profile_picture, avatar_url")
+                .in("user_id", clientIds)
+            : { data: [], error: null }
 
         if (clientsError) {
           console.error("Error fetching clients:", clientsError)
         }
 
         // Map clients to jobs
-        const clientsMap = new Map(clientsData?.map((client) => [client.id, client]) || [])
+        const clientsMap = new Map(
+          clientsData?.map((client) => [
+            client.user_id || client.id,
+            {
+              id: client.user_id || client.id,
+              full_name: client.display_name || client.full_name || client.username || "Client",
+              profile_image_url: client.profile_image_url || client.profile_picture || client.avatar_url || "",
+            },
+          ]) || [],
+        )
         const jobsWithClients = jobsData.map((job) => ({
           ...job,
           client: job.client_id ? clientsMap.get(job.client_id) : null,

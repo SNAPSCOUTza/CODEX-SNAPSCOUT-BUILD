@@ -102,6 +102,9 @@ export async function POST(request: Request) {
     updateData.instagram = socialLinks.instagram || profileData.instagram || null
     updateData.linkedin = socialLinks.linkedin || profileData.linkedin || null
     updateData.youtube = socialLinks.youtube || profileData.youtube || null
+    updateData.facebook = socialLinks.facebook || profileData.facebook || null
+    updateData.vimeo = socialLinks.vimeo || profileData.vimeo || null
+    updateData.imdb_profile = socialLinks.imdb || socialLinks.imdb_profile || profileData.imdb || profileData.imdb_profile || null
     updateData.website = socialLinks.website || profileData.website || null
     updateData.city = profileData.city || profileData.location || null
 
@@ -119,6 +122,20 @@ export async function POST(request: Request) {
         .upsert({ ...updateData, account_type: null }, { onConflict: "user_id" })
         .select()
         .single()
+      data = retry.data
+      error = retry.error
+    }
+
+    if (error?.message?.toLowerCase().includes("availability_status")) {
+      const { availability_status, ...retryPayload } = updateData
+      const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
+      data = retry.data
+      error = retry.error
+    }
+
+    if (error?.message?.toLowerCase().includes("facebook") || error?.message?.toLowerCase().includes("vimeo") || error?.message?.toLowerCase().includes("imdb_profile")) {
+      const { facebook, vimeo, imdb_profile, ...retryPayload } = updateData
+      const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
       data = retry.data
       error = retry.error
     }

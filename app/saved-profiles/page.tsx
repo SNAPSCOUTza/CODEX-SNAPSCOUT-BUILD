@@ -69,16 +69,17 @@ export default function SavedProfilesPage() {
         return
       }
 
-      const favoritedIds = favorites.map((f) => f.favorited_user_id)
+      const favoritedIds = favorites.map((f: any) => f.favorited_user_id)
 
       const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
+        .from("user_profiles")
         .select(`
-          id, full_name, email, profession, bio, location,
-          profile_image_url, availability, pricing, skills,
-          social_links, portfolio_images, is_public, subscription_status
+          id, user_id, full_name, display_name, username, email, profession, bio, location, city, province,
+          profile_image_url, profile_picture, avatar_url, availability, availability_status, pricing,
+          hourly_rate, daily_rate, project_rate, skills, social_links, portfolio_images,
+          is_public, is_profile_visible, subscription_status
         `)
-        .in("id", favoritedIds)
+        .in("user_id", favoritedIds)
 
       if (profilesError) {
         console.error("Error fetching profiles:", profilesError)
@@ -87,19 +88,23 @@ export default function SavedProfilesPage() {
       }
 
       // Merge the saved_at timestamp with profile data and transform to expected format
-      const mergedProfiles = (profilesData || []).map((profile) => {
-        const favorite = favorites.find((f) => f.favorited_user_id === profile.id)
+      const mergedProfiles = (profilesData || []).map((profile: any) => {
+        const profileId = profile.user_id || profile.id
+        const location = profile.location || [profile.city, profile.province].filter(Boolean).join(", ")
+        const favorite = favorites.find((f: any) => f.favorited_user_id === profileId)
         return {
-          user_id: profile.id,
-          display_name: profile.full_name || "Unknown",
-          full_name: profile.full_name,
-          profile_picture: profile.profile_image_url,
-          city: profile.location?.split(",")[0]?.trim() || "",
-          province: profile.location?.split(",")[1]?.trim() || "",
+          user_id: profileId,
+          display_name: profile.display_name || profile.full_name || profile.username || "Unknown",
+          full_name: profile.full_name || profile.display_name || profile.username || "Unknown",
+          profile_picture: profile.profile_image_url || profile.profile_picture || profile.avatar_url || "",
+          city: profile.city || location?.split(",")[0]?.trim() || "",
+          province: profile.province || location?.split(",")[1]?.trim() || "",
           account_type: profile.profession || "Professional",
           bio: profile.bio || "",
           experience_level: "",
-          hourly_rate: profile.pricing || "",
+          hourly_rate:
+            profile.pricing ||
+            (profile.hourly_rate ? `R${profile.hourly_rate}/hr` : profile.daily_rate ? `R${profile.daily_rate}/day` : ""),
           roles: profile.skills || [],
           saved_at: favorite?.created_at || "",
         }

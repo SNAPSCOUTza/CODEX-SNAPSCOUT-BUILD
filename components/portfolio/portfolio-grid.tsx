@@ -4,16 +4,14 @@ import { useState } from "react"
 import Image from "next/image"
 import { Play } from "lucide-react"
 import { PortfolioLightbox } from "./portfolio-lightbox"
+import type { LightboxPortfolioItem } from "@/types/portfolio"
 
-interface PortfolioItem {
+interface PortfolioItem extends LightboxPortfolioItem {
   id: string
   type: "image" | "video"
   thumbnail: string
   fullUrl?: string
   title?: string
-  platform?: "instagram" | "youtube" | "vimeo" | "facebook" | "local"
-  duration?: number
-  link?: string
 }
 
 interface PortfolioGridProps {
@@ -26,6 +24,8 @@ const platformColors: Record<string, string> = {
   youtube: "bg-red-500",
   vimeo: "bg-blue-500",
   facebook: "bg-blue-600",
+  imdb: "bg-amber-500",
+  external: "bg-slate-700",
   local: "bg-gray-500",
 }
 

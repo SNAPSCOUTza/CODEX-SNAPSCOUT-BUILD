@@ -26,6 +26,7 @@ type AvailabilityCalendarProps = {
   ownerType: AvailabilityOwnerType
   title?: string
   compact?: boolean
+  onRequestDate?: (dateKey: string) => void
 }
 
 const dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
@@ -95,7 +96,13 @@ function MonthGrid({
   )
 }
 
-export function AvailabilityCalendar({ ownerId, ownerType, title = "Availability", compact = false }: AvailabilityCalendarProps) {
+export function AvailabilityCalendar({
+  ownerId,
+  ownerType,
+  title = "Availability",
+  compact = false,
+  onRequestDate,
+}: AvailabilityCalendarProps) {
   const router = useRouter()
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
   const [entries, setEntries] = useState<AvailabilityEntry[]>([])
@@ -217,9 +224,9 @@ export function AvailabilityCalendar({ ownerId, ownerType, title = "Availability
       <Dialog open={!!selectedDate} onOpenChange={(open) => !open && setSelectedDate(null)}>
         <DialogContent
           showCloseButton={false}
-          className="top-auto bottom-0 left-0 right-0 z-[70] max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-b-none rounded-t-[28px] border-x-0 border-b-0 border-t border-[#eadfd2] bg-[#fffaf3] p-0 text-[#0b0b0d] shadow-[0_-24px_70px_rgba(0,0,0,0.22)] sm:left-1/2 sm:top-1/2 sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border"
+          className="top-auto bottom-0 left-0 right-0 z-[70] max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-b-none rounded-t-[28px] border-x-0 border-b-0 border-t border-[#e8edf5] bg-white p-0 text-[#0b0b0d] shadow-[0_-24px_70px_rgba(0,0,0,0.22)] sm:left-1/2 sm:top-1/2 sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border"
         >
-          <DialogHeader className="border-b border-[#eee4d8] bg-[#fffaf3] px-5 pb-4 pt-5 text-left">
+          <DialogHeader className="border-b border-[#e8edf5] bg-white px-5 pb-4 pt-5 text-left">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <DialogTitle className="text-[24px] font-bold">
@@ -237,23 +244,30 @@ export function AvailabilityCalendar({ ownerId, ownerType, title = "Availability
                 type="button"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => setSelectedDate(null)}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#e5dbcf] bg-white text-[#111318] shadow-sm"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#e1e7f1] bg-white text-[#111318] shadow-sm"
                 aria-label="Close date details"
               >
                 <X className="h-4 w-4" />
               </motion.button>
             </div>
           </DialogHeader>
-          <div className="grid gap-3 bg-[#fffaf3] p-5">
+          <div className="grid gap-3 bg-white p-5">
             {selectedDate?.status === "booked" || selectedDate?.status === "blocked" ? (
-              <div className="rounded-2xl border border-[#e5dbcf] bg-white p-4 text-[14px] text-[#5f6672]">
+              <div className="rounded-2xl border border-[#e1e7f1] bg-white p-4 text-[14px] text-[#5f6672]">
                 <Lock className="mb-2 h-5 w-5" />
                 Try a green date or any empty date with no status marker.
               </div>
             ) : (
               <Button
                 className="h-[52px] rounded-full"
-                onClick={() => router.push(`/booking/${ownerId}?date=${selectedKey}`)}
+                onClick={() => {
+                  if (onRequestDate) {
+                    onRequestDate(selectedKey)
+                  } else {
+                    router.push(`/booking/${ownerId}?date=${selectedKey}`)
+                  }
+                  setSelectedDate(null)
+                }}
               >
                 <CalendarCheck className="h-4 w-4" />
                 Request this date

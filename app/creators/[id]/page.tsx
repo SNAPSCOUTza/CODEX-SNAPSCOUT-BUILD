@@ -13,6 +13,9 @@ import { PortfolioTabs } from "@/components/portfolio/portfolio-tabs"
 import { getPlatformCounts, filterByPlatform } from "@/lib/mock-data/portfolio-data"
 import { AvailabilityCalendar } from "@/components/availability/availability-calendar"
 import { AvailabilityStatusBadge } from "@/components/availability/availability-status-badge"
+import { HireRequestSheet } from "@/components/booking/hire-request-sheet"
+import { SaveToPoolButton } from "@/components/crew/SaveToPoolButton"
+import { ProfilePortfolioGallery } from "@/components/portfolio/profile-portfolio-gallery"
 import type { AvailabilityOwnerType } from "@/lib/availability"
 
 export default function CreatorProfilePage() {
@@ -20,6 +23,8 @@ export default function CreatorProfilePage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("all")
   const [saved, setSaved] = useState(false)
+  const [hireSheetOpen, setHireSheetOpen] = useState(false)
+  const [requestedDate, setRequestedDate] = useState<string | undefined>()
   const creator = mockCreators.find((c) => c.id === params.id) || mockCreators[0]
 
   const platforms = useMemo(() => getPlatformCounts(creator.portfolioItems), [creator.portfolioItems])
@@ -34,8 +39,13 @@ export default function CreatorProfilePage() {
       ? "photographer"
       : "crew"
 
+  const openHireSheet = (date?: string) => {
+    setRequestedDate(date)
+    setHireSheetOpen(true)
+  }
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#fffcf7]">
+    <div className="min-h-screen overflow-x-hidden bg-white">
       <div className="w-full md:hidden pb-28">
         <div className="w-full">
           <div className="relative h-[310px] w-full overflow-hidden rounded-b-[34px]">
@@ -56,15 +66,18 @@ export default function CreatorProfilePage() {
             </div>
           </div>
 
-          <div className="relative -mt-9 w-full rounded-t-[34px] bg-[#fffcf7] px-5 pb-7 pt-0">
-            <div className="flex items-end justify-between">
-              <div className="relative -mt-9 h-24 w-24 overflow-hidden rounded-full border-4 border-[#fffcf7] shadow-sm">
-                <Image src={creator.avatar || "/placeholder-user.jpg"} alt={creator.name} fill className="object-cover" />
-              </div>
-              <div className="mb-1 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">{creator.profession}</div>
+          <div className="relative -mt-10 w-full rounded-t-[34px] bg-white px-5 pb-7 pt-16">
+            <div className="absolute left-5 top-[-42px] h-[88px] w-[88px] overflow-hidden rounded-full border-4 border-white bg-white shadow-[0_12px_26px_rgba(9,14,24,0.14)]">
+              <Image src={creator.avatar || "/placeholder-user.jpg"} alt={creator.name} fill className="object-cover" />
             </div>
 
-            <h1 className="mt-3 text-[44px] leading-[0.94] font-semibold text-black">{creator.name}</h1>
+            <div className="flex items-start justify-end">
+              <div className="rounded-full bg-[#f4f6f8] px-3 py-1 text-xs font-semibold text-[#f20d14]">
+                {creator.profession}
+              </div>
+            </div>
+
+            <h1 className="mt-2 text-[44px] leading-[0.94] font-semibold text-black">{creator.name}</h1>
             <div className="mt-3 flex items-center gap-3 text-[15px] text-neutral-700">
               <span className="inline-flex items-center gap-1 font-medium"><Star className="h-4 w-4 fill-red-500 text-red-500" /> {creator.rating}</span>
               <span>({creator.reviews} reviews)</span>
@@ -90,24 +103,31 @@ export default function CreatorProfilePage() {
               ))}
             </div>
 
+            <SaveToPoolButton profileId={creator.id} profileName={creator.name} className="mt-3 h-12 w-full" variant="outline" />
+
             <h3 className="mt-7 text-lg font-semibold">Services</h3>
             <div className="mt-3 flex flex-wrap gap-2">
               {services.map((service) => (
-                <span key={service} className="rounded-full bg-[#f2efe8] px-4 py-2 text-sm font-medium">{service}</span>
+                <span key={service} className="rounded-full bg-[#f4f6f8] px-4 py-2 text-sm font-medium text-[#1c1f25]">{service}</span>
               ))}
             </div>
 
-            <h3 className="mt-7 text-lg font-semibold">Portfolio</h3>
-            <div className="mt-3 grid grid-cols-4 gap-2.5">
-              {creator.portfolioItems.slice(0, 4).map((item) => (
-                <div key={item.id} className="relative aspect-square overflow-hidden rounded-2xl">
-                  <Image src={item.thumbnail || "/placeholder.jpg"} alt={item.title || "Portfolio preview"} fill className="object-cover" />
-                </div>
-              ))}
-            </div>
+            <ProfilePortfolioGallery
+              userId={creator.id}
+              items={creator.portfolioItems}
+              className="mt-7"
+              previewCount={4}
+              onHire={() => openHireSheet()}
+            />
 
             <div className="mt-7">
-              <AvailabilityCalendar ownerId={creator.id} ownerType={ownerType} title="Live availability" compact />
+              <AvailabilityCalendar
+                ownerId={creator.id}
+                ownerType={ownerType}
+                title="Live availability"
+                compact
+                onRequestDate={openHireSheet}
+              />
             </div>
           </div>
         </div>
@@ -118,7 +138,10 @@ export default function CreatorProfilePage() {
               <div className="text-sm text-neutral-500">From</div>
               <div className="text-3xl font-semibold leading-none">{price}</div>
             </div>
-            <Button onClick={() => router.push(`/booking/${params.id}`)} className="h-14 min-w-[180px] rounded-full bg-red-600 text-lg hover:bg-red-700 active:scale-[0.98]">
+            <Button
+              onClick={() => openHireSheet()}
+              className="h-14 min-w-[180px] rounded-full bg-red-600 text-lg hover:bg-red-700 active:scale-[0.98]"
+            >
               Hire {creator.name.split(" ")[0]}
             </Button>
           </div>
@@ -137,7 +160,7 @@ export default function CreatorProfilePage() {
             reviews={creator.reviews}
             portfolioCount={creator.portfolioCount}
             isOwnProfile={false}
-            onHire={() => router.push(`/booking/${params.id}`)}
+            onHire={() => openHireSheet()}
             onMessage={() => router.push(`/messages?recipient=${params.id}`)}
             onSave={() => setSaved((v) => !v)}
             onShare={() => navigator.clipboard.writeText(window.location.href)}
@@ -146,14 +169,29 @@ export default function CreatorProfilePage() {
           <div className="mt-8">
             <PortfolioTabs platforms={platforms} activeTab={activeTab} onTabChange={setActiveTab} />
             <div className="mt-4">
-              <PortfolioGrid items={filteredItems} onHire={() => router.push(`/booking/${params.id}`)} />
+              <PortfolioGrid items={filteredItems} onHire={() => openHireSheet()} />
             </div>
           </div>
           <div className="mt-8">
-            <AvailabilityCalendar ownerId={creator.id} ownerType={ownerType} title="Live availability" />
+            <SaveToPoolButton profileId={creator.id} profileName={creator.name} className="mb-4 h-12 rounded-full" variant="outline" />
+            <AvailabilityCalendar
+              ownerId={creator.id}
+              ownerType={ownerType}
+              title="Live availability"
+              onRequestDate={openHireSheet}
+            />
           </div>
         </div>
       </div>
+      <HireRequestSheet
+        open={hireSheetOpen}
+        onOpenChange={setHireSheetOpen}
+        talentId={creator.id}
+        talentName={creator.name}
+        talentType="creator"
+        priceLabel={price}
+        initialDate={requestedDate}
+      />
     </div>
   )
 }

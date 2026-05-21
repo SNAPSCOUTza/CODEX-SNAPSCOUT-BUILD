@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { motion } from "framer-motion"
 import {
   User,
   Camera,
@@ -23,6 +24,9 @@ import {
   Save,
   Lock,
   Mail,
+  ImageIcon,
+  ExternalLink,
+  PlayCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +43,8 @@ import { SubscriptionCard } from "@/components/dashboard/subscription-card"
 import { calculateProfileCompleteness } from "@/lib/profile-utils"
 import { AvailabilityManager } from "@/components/availability/availability-manager"
 import type { AvailabilityOwnerType } from "@/lib/availability"
+import { IncomingAvailabilityRequests } from "@/components/crew/IncomingAvailabilityRequests"
+import type { PortfolioSourcePlatform, ProfilePortfolioItem } from "@/types/portfolio"
 
 interface UserProfile {
   id?: string
@@ -59,6 +65,9 @@ interface UserProfile {
     website?: string
     twitter?: string
     vimeo?: string
+    facebook?: string
+    imdb?: string
+    imdb_profile?: string
   }
   portfolio_images: string[]
   skills?: any
@@ -102,8 +111,237 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: "store", label: "Equipment Store" },
 ]
 
+const GALLERY_PLATFORM_META: Record<
+  PortfolioSourcePlatform | "linkedin" | "website",
+  {
+    label: string
+    description: string
+    accent: string
+    Icon: typeof Globe
+  }
+> = {
+  local: {
+    label: "Uploaded images",
+    description: "Images saved directly to your SnapScout profile.",
+    accent: "bg-slate-100 text-slate-700",
+    Icon: ImageIcon,
+  },
+  instagram: {
+    label: "Instagram",
+    description: "Posts, reels, or profile links imported from Instagram.",
+    accent: "bg-rose-50 text-rose-700",
+    Icon: Instagram,
+  },
+  facebook: {
+    label: "Facebook",
+    description: "Facebook pages, videos, and public portfolio links.",
+    accent: "bg-blue-50 text-blue-700",
+    Icon: Globe,
+  },
+  youtube: {
+    label: "YouTube",
+    description: "Video embeds and channel links from YouTube.",
+    accent: "bg-red-50 text-red-700",
+    Icon: Youtube,
+  },
+  vimeo: {
+    label: "Vimeo",
+    description: "Vimeo reels, profile links, and video embeds.",
+    accent: "bg-cyan-50 text-cyan-700",
+    Icon: PlayCircle,
+  },
+  imdb: {
+    label: "IMDb",
+    description: "Credits and profile links saved as external portfolio proof.",
+    accent: "bg-amber-50 text-amber-700",
+    Icon: Globe,
+  },
+  external: {
+    label: "External links",
+    description: "Portfolio pages and media from other trusted sources.",
+    accent: "bg-gray-100 text-gray-700",
+    Icon: ExternalLink,
+  },
+  linkedin: {
+    label: "LinkedIn",
+    description: "Professional credits and profile links from LinkedIn.",
+    accent: "bg-sky-50 text-sky-700",
+    Icon: Linkedin,
+  },
+  website: {
+    label: "Website",
+    description: "Your own website or portfolio destination.",
+    accent: "bg-emerald-50 text-emerald-700",
+    Icon: Globe,
+  },
+}
+
 function isEqual(obj1: any, obj2: any): boolean {
   return JSON.stringify(obj1) === JSON.stringify(obj2)
+}
+
+function normalizeProfileUrl(platform: string, value?: string) {
+  const trimmed = value?.trim()
+  if (!trimmed) return ""
+
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+
+  const handle = trimmed.replace(/^@/, "")
+  if (platform === "instagram") return `https://instagram.com/${handle}`
+  if (platform === "linkedin") return `https://linkedin.com/in/${handle}`
+  if (platform === "youtube") return `https://youtube.com/${handle}`
+  if (platform === "vimeo") return `https://vimeo.com/${handle}`
+  if (platform === "facebook") return `https://facebook.com/${handle}`
+  if (platform === "imdb") return `https://imdb.com/name/${handle}`
+  return `https://${trimmed}`
+}
+
+function getReadableUrl(url?: string | null) {
+  if (!url) return "Saved portfolio item"
+  try {
+    const parsed = new URL(url)
+    return parsed.hostname.replace(/^www\./, "")
+  } catch {
+    return url
+  }
+}
+
+type DashboardGalleryItem = {
+  id: string
+  title: string
+  url: string
+  thumbnail?: string | null
+  embedUrl?: string | null
+  mediaType?: string | null
+}
+
+function isUsablePreviewImage(url?: string | null) {
+  if (!url) return false
+  return !String(url).includes("placeholder")
+}
+
+function isDirectImageUrl(url?: string | null) {
+  if (!url) return false
+  return /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(url)
+}
+
+function getYouTubeEmbedUrl(url?: string | null) {
+  if (!url) return null
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^"&?/\s]{11})/)
+  return match?.[1] ? `https://www.youtube.com/embed/${match[1]}` : null
+}
+
+function getVimeoEmbedUrl(url?: string | null) {
+  if (!url) return null
+  const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  return match?.[1] ? `https://player.vimeo.com/video/${match[1]}` : null
+}
+
+function getMediaEmbedUrl(platform: string, item: DashboardGalleryItem) {
+  if (item.embedUrl) return item.embedUrl
+  if (platform === "youtube") return getYouTubeEmbedUrl(item.url)
+  if (platform === "vimeo") return getVimeoEmbedUrl(item.url)
+  return null
+}
+
+function GalleryPreviewTile({
+  item,
+  platform,
+  index,
+}: {
+  item: DashboardGalleryItem
+  platform: PortfolioSourcePlatform | "linkedin" | "website"
+  index: number
+}) {
+  const embedUrl = getMediaEmbedUrl(platform, item)
+  const previewImage = isUsablePreviewImage(item.thumbnail)
+    ? item.thumbnail
+    : isDirectImageUrl(item.url)
+      ? item.url
+      : null
+  const isInstagramPost = platform === "instagram" && /instagram\.com\/(p|reel|tv)\//i.test(item.url)
+  const isFacebookPost = platform === "facebook" && /(facebook\.com|fb\.watch)/i.test(item.url)
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.32, delay: index * 0.04, ease: "easeOut" }}
+      className="overflow-hidden rounded-[22px] border border-gray-100 bg-gray-50 shadow-sm"
+    >
+      <div className="relative aspect-[4/3] overflow-hidden bg-white">
+        {embedUrl ? (
+          <iframe
+            src={embedUrl}
+            title={item.title}
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        ) : isInstagramPost ? (
+          <div className="h-full overflow-y-auto bg-white p-2">
+            <blockquote
+              className="instagram-media !min-w-0 !w-full"
+              data-instgrm-permalink={item.url}
+              data-instgrm-version="14"
+              style={{
+                background: "#fff",
+                border: 0,
+                margin: "0 auto",
+                maxWidth: "100%",
+                minWidth: "0",
+                width: "100%",
+              }}
+            >
+              <a href={item.url} target="_blank" rel="noopener noreferrer">
+                View Instagram post
+              </a>
+            </blockquote>
+          </div>
+        ) : isFacebookPost ? (
+          <div className="grid h-full place-items-center bg-white p-3">
+            <div className="fb-post" data-href={item.url} data-width="420" data-show-text="true" />
+            <a className="mt-3 text-sm font-semibold text-blue-700" href={item.url} target="_blank" rel="noopener noreferrer">
+              Open Facebook post
+            </a>
+          </div>
+        ) : previewImage ? (
+          <img src={previewImage} alt={item.title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="grid h-full place-items-center bg-white p-6 text-center">
+            <div>
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-gray-100 text-gray-500">
+                <ExternalLink className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-gray-950">{getReadableUrl(item.url)}</p>
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                This source is saved as an external portfolio reference.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-white p-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-gray-950">{item.title}</p>
+          <p className="mt-0.5 truncate text-xs text-gray-500">{getReadableUrl(item.url)}</p>
+        </div>
+        {item.url && (
+          <motion.a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            whileTap={{ scale: 0.94 }}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:text-red-500"
+            aria-label={`Open ${item.title}`}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </motion.a>
+        )}
+      </div>
+    </motion.article>
+  )
 }
 
 export default function DashboardPage() {
@@ -138,6 +376,14 @@ export default function DashboardPage() {
   const [passwordResetLoading, setPasswordResetLoading] = useState(false)
   const [passwordResetSent, setPasswordResetSent] = useState(false)
   const [passwordResetError, setPasswordResetError] = useState("")
+  const [portfolioImportUrl, setPortfolioImportUrl] = useState("")
+  const [portfolioImportStatus, setPortfolioImportStatus] = useState<"idle" | "importing" | "success" | "error">("idle")
+  const [portfolioImportMessage, setPortfolioImportMessage] = useState("")
+  const [instagramImportUrls, setInstagramImportUrls] = useState("")
+  const [instagramImportStatus, setInstagramImportStatus] = useState<"idle" | "importing" | "success" | "error">("idle")
+  const [instagramImportMessage, setInstagramImportMessage] = useState("")
+  const [portfolioItems, setPortfolioItems] = useState<ProfilePortfolioItem[]>([])
+  const [portfolioItemsLoading, setPortfolioItemsLoading] = useState(false)
 
   const [profileCompleteness, setProfileCompleteness] = useState(0)
 
@@ -162,6 +408,86 @@ export default function DashboardPage() {
 
     return !isEqual(currentProfile, initialProfileRef.current)
   }, [profileData, selectedProvince, selectedCity])
+
+  const gallerySections = useMemo(() => {
+    const sections: Array<{
+      id: string
+      platform: PortfolioSourcePlatform | "linkedin" | "website"
+      items: Array<{
+        id: string
+        title: string
+        url: string
+        thumbnail?: string | null
+        embedUrl?: string | null
+        mediaType?: string | null
+      }>
+    }> = []
+
+    const grouped = portfolioItems.reduce<Record<string, typeof sections[number]["items"]>>((acc, item, index) => {
+      const platform = item.source_platform || item.platform || "external"
+      const key = platform in GALLERY_PLATFORM_META ? platform : "external"
+      const url = item.source_url || item.link || item.full_media_url || item.fullUrl || item.thumbnail_url || item.thumbnail || ""
+      if (!acc[key]) acc[key] = []
+      acc[key].push({
+        id: item.id || `${key}-${index}`,
+        title: item.title || item.caption || getReadableUrl(url),
+        url,
+        thumbnail: item.thumbnail_url || item.thumbnail || item.full_media_url || item.fullUrl,
+        embedUrl: item.embed_url || item.embedUrl,
+        mediaType: item.media_type || item.type,
+      })
+      return acc
+    }, {})
+
+    Object.entries(grouped).forEach(([platform, items]) => {
+      sections.push({ id: platform, platform: platform as PortfolioSourcePlatform, items })
+    })
+
+    if (profileData.portfolio_images.length) {
+      sections.push({
+        id: "uploaded-fallback",
+        platform: "local",
+        items: profileData.portfolio_images.map((image, index) => ({
+          id: `uploaded-${index}`,
+          title: `Uploaded image ${index + 1}`,
+          url: image,
+          thumbnail: image,
+          mediaType: "image",
+        })),
+      })
+    }
+
+    const socialSources: Array<{
+      platform: PortfolioSourcePlatform | "linkedin" | "website"
+      value?: string
+    }> = [
+      { platform: "youtube", value: profileData.social_links.youtube },
+      { platform: "vimeo", value: profileData.social_links.vimeo },
+      { platform: "facebook", value: profileData.social_links.facebook },
+      { platform: "linkedin", value: profileData.social_links.linkedin },
+      { platform: "imdb", value: profileData.social_links.imdb || profileData.social_links.imdb_profile },
+      { platform: "website", value: profileData.social_links.website },
+    ]
+
+    socialSources.forEach(({ platform, value }) => {
+      const url = normalizeProfileUrl(platform, value)
+      if (!url) return
+      sections.push({
+        id: `social-${platform}`,
+        platform,
+        items: [
+          {
+            id: `social-${platform}-profile`,
+            title: `${GALLERY_PLATFORM_META[platform].label} profile`,
+            url,
+            mediaType: "external",
+          },
+        ],
+      })
+    })
+
+    return sections
+  }, [portfolioItems, profileData.portfolio_images, profileData.social_links])
 
   useEffect(() => {
     if (initialProfileRef.current && hasUnsavedChanges()) {
@@ -190,6 +516,7 @@ export default function DashboardPage() {
 
       if (result.profile) {
         const profile = result.profile
+        const socialLinks = profile.social_links || {}
         const newProfileData = {
           full_name: profile.full_name || "",
           display_name: profile.display_name || "",
@@ -202,13 +529,15 @@ export default function DashboardPage() {
           pricing: profile.pricing || "",
           is_public: profile.is_public ?? true,
           skills: profile.skills || [],
-          social_links: profile.social_links || {
-            website: "",
-            instagram: "",
-            twitter: "",
-            linkedin: "",
-            youtube: "",
-            vimeo: "",
+          social_links: {
+            website: socialLinks.website || profile.website || "",
+            instagram: socialLinks.instagram || profile.instagram || "",
+            twitter: socialLinks.twitter || profile.twitter || "",
+            linkedin: socialLinks.linkedin || profile.linkedin || "",
+            youtube: socialLinks.youtube || profile.youtube || "",
+            vimeo: socialLinks.vimeo || profile.vimeo || "",
+            facebook: socialLinks.facebook || profile.facebook || "",
+            imdb: socialLinks.imdb || socialLinks.imdb_profile || profile.imdb_profile || "",
           },
           portfolio_images: profile.portfolio_images || [],
           subscription_status: profile.subscription_status || "free",
@@ -231,6 +560,26 @@ export default function DashboardPage() {
       console.error("[v0] Dashboard: Error loading profile:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadPortfolioItems = async () => {
+    if (!user?.id) return
+
+    setPortfolioItemsLoading(true)
+    try {
+      const response = await fetch("/api/portfolio/items", {
+        method: "GET",
+        credentials: "include",
+      })
+      const payload = await response.json()
+      if (response.ok && Array.isArray(payload.items)) {
+        setPortfolioItems(payload.items)
+      }
+    } catch (error) {
+      console.error("[v0] Dashboard: Error loading portfolio items:", error)
+    } finally {
+      setPortfolioItemsLoading(false)
     }
   }
 
@@ -263,6 +612,61 @@ export default function DashboardPage() {
 
     initializeDashboard()
   }, [router])
+
+  useEffect(() => {
+    if (user?.id) {
+      loadPortfolioItems()
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (activeSection !== "gallery") return
+
+    const hasInstagramEmbeds = gallerySections.some((section) => section.platform === "instagram")
+    const hasFacebookEmbeds = gallerySections.some((section) => section.platform === "facebook")
+
+    if (hasInstagramEmbeds) {
+      const processInstagramEmbeds = () => (window as any).instgrm?.Embeds?.process?.()
+      const existingInstagramScript = document.querySelector<HTMLScriptElement>(
+        'script[src="https://www.instagram.com/embed.js"]',
+      )
+
+      if (existingInstagramScript) {
+        processInstagramEmbeds()
+      } else {
+        const script = document.createElement("script")
+        script.src = "https://www.instagram.com/embed.js"
+        script.async = true
+        script.onload = processInstagramEmbeds
+        document.body.appendChild(script)
+      }
+    }
+
+    if (hasFacebookEmbeds) {
+      if (!document.getElementById("fb-root")) {
+        const fbRoot = document.createElement("div")
+        fbRoot.id = "fb-root"
+        document.body.appendChild(fbRoot)
+      }
+
+      const processFacebookEmbeds = () => (window as any).FB?.XFBML?.parse?.()
+      const existingFacebookScript = document.querySelector<HTMLScriptElement>(
+        'script[src*="connect.facebook.net"][src*="sdk.js"]',
+      )
+
+      if (existingFacebookScript) {
+        processFacebookEmbeds()
+      } else {
+        const script = document.createElement("script")
+        script.src = "https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v20.0"
+        script.async = true
+        script.defer = true
+        script.crossOrigin = "anonymous"
+        script.onload = processFacebookEmbeds
+        document.body.appendChild(script)
+      }
+    }
+  }, [activeSection, gallerySections])
 
   const handleInputChange = (field: keyof UserProfile, value: any) => {
     setProfileData((prev) => ({ ...prev, [field]: value }))
@@ -371,6 +775,111 @@ export default function DashboardPage() {
   const removePortfolioImage = (index: number) => {
     const updatedImages = profileData.portfolio_images.filter((_, i) => i !== index)
     handleInputChange("portfolio_images", updatedImages)
+  }
+
+  const handleImportPortfolioLink = async () => {
+    if (!portfolioImportUrl.trim()) {
+      setPortfolioImportStatus("error")
+      setPortfolioImportMessage("Paste a portfolio, video, social, or credit URL first.")
+      return
+    }
+
+    setPortfolioImportStatus("importing")
+    setPortfolioImportMessage("")
+
+    try {
+      const response = await fetch("/api/portfolio/import-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ url: portfolioImportUrl }),
+      })
+      const payload = await response.json()
+
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error || "Could not import this link.")
+      }
+
+      const previewImage = payload.item?.thumbnail_url || payload.item?.full_media_url
+      if (previewImage && !String(previewImage).includes("placeholder")) {
+        setProfileData((prev) => ({
+          ...prev,
+          portfolio_images: prev.portfolio_images.includes(previewImage)
+            ? prev.portfolio_images
+            : [...prev.portfolio_images, previewImage],
+        }))
+      }
+      if (payload.item) {
+        setPortfolioItems((current) => [payload.item, ...current.filter((item) => item.id !== payload.item.id)])
+      }
+
+      setPortfolioImportUrl("")
+      setPortfolioImportStatus("success")
+      setPortfolioImportMessage("Portfolio link imported. It will now appear on your public profile.")
+    } catch (error: any) {
+      setPortfolioImportStatus("error")
+      setPortfolioImportMessage(error?.message || "Could not import this link.")
+    }
+  }
+
+  const handleImportInstagramPosts = async () => {
+    const urls = Array.from(
+      new Set(
+        instagramImportUrls
+          .split(/[\n,]+/)
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .filter((value) => /instagram\.com\/(p|reel|tv)\//i.test(value)),
+      ),
+    )
+
+    if (!urls.length) {
+      setInstagramImportStatus("error")
+      setInstagramImportMessage("Paste one or more public Instagram post or reel URLs.")
+      return
+    }
+
+    setInstagramImportStatus("importing")
+    setInstagramImportMessage("")
+
+    try {
+      const importedItems: ProfilePortfolioItem[] = []
+      const failures: string[] = []
+
+      for (const url of urls) {
+        const response = await fetch("/api/portfolio/import-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ url, title: "Instagram post" }),
+        })
+        const payload = await response.json()
+
+        if (!response.ok || payload.error || !payload.item) {
+          failures.push(url)
+        } else {
+          importedItems.push(payload.item)
+        }
+      }
+
+      if (importedItems.length) {
+        setPortfolioItems((current) => [
+          ...importedItems,
+          ...current.filter((item) => !importedItems.some((imported) => imported.id === item.id)),
+        ])
+      }
+
+      setInstagramImportUrls("")
+      setInstagramImportStatus(failures.length ? "error" : "success")
+      setInstagramImportMessage(
+        failures.length
+          ? `Imported ${importedItems.length} post${importedItems.length === 1 ? "" : "s"}. ${failures.length} URL${failures.length === 1 ? "" : "s"} could not be imported.`
+          : `Imported ${importedItems.length} Instagram post${importedItems.length === 1 ? "" : "s"} into your gallery preview.`,
+      )
+    } catch (error: any) {
+      setInstagramImportStatus("error")
+      setInstagramImportMessage(error?.message || "Could not import Instagram posts.")
+    }
   }
 
   const handleRequestPasswordReset = async () => {
@@ -547,6 +1056,7 @@ export default function DashboardPage() {
                   {[
                     { id: "profile", icon: User, label: "Profile" },
                     { id: "portfolio", icon: Briefcase, label: "Portfolio" },
+                    { id: "gallery", icon: ImageIcon, label: "Gallery" },
                     { id: "settings", icon: Settings, label: "Settings" },
                     { id: "subscription", icon: CreditCard, label: "Subscription" },
                   ].map((item) => (
@@ -568,6 +1078,8 @@ export default function DashboardPage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
+            {user?.id && <IncomingAvailabilityRequests />}
+
             {user?.id && (
               <AvailabilityManager ownerId={user.id} ownerType={dashboardOwnerType} />
             )}
@@ -752,6 +1264,30 @@ export default function DashboardPage() {
                           placeholder="Website URL"
                         />
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-5 w-5 text-gray-400" />
+                        <Input
+                          value={profileData.social_links.facebook || ""}
+                          onChange={(e) => handleSocialLinkChange("facebook", e.target.value)}
+                          placeholder="Facebook profile or page URL"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-5 w-5 text-gray-400" />
+                        <Input
+                          value={profileData.social_links.vimeo || ""}
+                          onChange={(e) => handleSocialLinkChange("vimeo", e.target.value)}
+                          placeholder="Vimeo profile URL"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-5 w-5 text-gray-400" />
+                        <Input
+                          value={profileData.social_links.imdb || ""}
+                          onChange={(e) => handleSocialLinkChange("imdb", e.target.value)}
+                          placeholder="IMDb profile or credit URL"
+                        />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -761,10 +1297,62 @@ export default function DashboardPage() {
             {activeSection === "portfolio" && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Portfolio</CardTitle>
-                  <CardDescription>Showcase your best work to attract clients</CardDescription>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle>Portfolio</CardTitle>
+                      <CardDescription>Showcase your best work to attract clients</CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 rounded-full"
+                      onClick={() => setActiveSection("gallery")}
+                    >
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      Preview Gallery
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4">
+                    <Label className="text-sm font-semibold">Import from link</Label>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Paste an Instagram, Facebook, Vimeo, IMDb, YouTube, or direct media URL. SnapScout saves the link
+                      safely without scraping private feeds.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                      <Input
+                        value={portfolioImportUrl}
+                        onChange={(e) => setPortfolioImportUrl(e.target.value)}
+                        placeholder="https://youtube.com/watch?v=..."
+                        className="h-12 flex-1 rounded-full"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleImportPortfolioLink}
+                        disabled={portfolioImportStatus === "importing"}
+                        className="h-12 rounded-full bg-red-600 px-6 text-white hover:bg-red-700"
+                      >
+                        {portfolioImportStatus === "importing" ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Importing
+                          </>
+                        ) : (
+                          "Import Link"
+                        )}
+                      </Button>
+                    </div>
+                    {portfolioImportMessage && (
+                      <p
+                        className={`mt-2 text-sm ${
+                          portfolioImportStatus === "error" ? "text-red-600" : "text-emerald-700"
+                        }`}
+                      >
+                        {portfolioImportMessage}
+                      </p>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {profileData.portfolio_images.map((image, index) => (
                       <div key={index} className="relative aspect-video rounded-lg overflow-hidden group">
@@ -795,6 +1383,174 @@ export default function DashboardPage() {
                       />
                     </label>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === "gallery" && (
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle>Gallery Preview</CardTitle>
+                      <CardDescription>
+                        Check how uploaded media and imported social links will be grouped on your public profile.
+                      </CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 rounded-full"
+                      onClick={() => setActiveSection("portfolio")}
+                    >
+                      <Briefcase className="mr-2 h-4 w-4" />
+                      Manage Portfolio
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="rounded-[24px] border border-rose-100 bg-rose-50/60 p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-rose-100 text-rose-700">
+                          <Instagram className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-950">Show real Instagram posts</h3>
+                          <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-600">
+                            Instagram profile links cannot expose your full feed by themselves. Paste public post or reel
+                            URLs here and SnapScout will render them as actual embedded posts in this gallery preview.
+                          </p>
+                          {profileData.social_links.instagram && (
+                            <a
+                              href={normalizeProfileUrl("instagram", profileData.social_links.instagram)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-rose-700"
+                            >
+                              Connected profile: {getReadableUrl(normalizeProfileUrl("instagram", profileData.social_links.instagram))}
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="w-full lg:max-w-md">
+                        <Textarea
+                          value={instagramImportUrls}
+                          onChange={(event) => setInstagramImportUrls(event.target.value)}
+                          placeholder={"Paste Instagram post/reel URLs, one per line\nhttps://www.instagram.com/p/...\nhttps://www.instagram.com/reel/..."}
+                          className="min-h-28 rounded-2xl border-rose-100 bg-white"
+                        />
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Button
+                            type="button"
+                            onClick={handleImportInstagramPosts}
+                            disabled={instagramImportStatus === "importing"}
+                            className="h-11 rounded-full bg-red-600 px-5 text-white hover:bg-red-700"
+                          >
+                            {instagramImportStatus === "importing" ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Importing
+                              </>
+                            ) : (
+                              <>
+                                <Instagram className="mr-2 h-4 w-4" />
+                                Import Posts
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-11 rounded-full bg-white"
+                            onClick={() => setActiveSection("profile")}
+                          >
+                            Edit Instagram Handle
+                          </Button>
+                        </div>
+                        {instagramImportMessage && (
+                          <p
+                            className={`mt-2 text-sm ${
+                              instagramImportStatus === "error" ? "text-red-700" : "text-emerald-700"
+                            }`}
+                          >
+                            {instagramImportMessage}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {portfolioItemsLoading ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {[0, 1, 2, 3].map((item) => (
+                        <div key={item} className="h-40 animate-pulse rounded-2xl border bg-gray-100" />
+                      ))}
+                    </div>
+                  ) : gallerySections.length ? (
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {gallerySections.map((section, sectionIndex) => {
+                        const meta = GALLERY_PLATFORM_META[section.platform]
+                        const Icon = meta.Icon
+                        return (
+                          <motion.section
+                            key={section.id}
+                            initial={{ opacity: 0, y: 14 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.35, delay: sectionIndex * 0.05, ease: "easeOut" }}
+                            className="overflow-hidden rounded-2xl border border-gray-200 bg-white"
+                          >
+                            <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4">
+                              <div className="flex items-start gap-3">
+                                <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${meta.accent}`}>
+                                  <Icon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-gray-950">{meta.label}</h3>
+                                  <p className="mt-1 text-sm leading-5 text-gray-500">{meta.description}</p>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="rounded-full">
+                                {section.items.length}
+                              </Badge>
+                            </div>
+
+                            <div className="grid gap-3 p-4 sm:grid-cols-2">
+                              {section.items.map((item, itemIndex) => (
+                                <GalleryPreviewTile
+                                  key={item.id}
+                                  item={item}
+                                  platform={section.platform}
+                                  index={sectionIndex * 2 + itemIndex}
+                                />
+                              ))}
+                            </div>
+                          </motion.section>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+                      <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gray-100 text-gray-500">
+                        <ImageIcon className="h-6 w-6" />
+                      </div>
+                      <h3 className="mt-4 text-lg font-semibold text-gray-950">No gallery sources yet</h3>
+                      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
+                        Add social links in Profile or import portfolio links in Portfolio. SnapScout will group them
+                        here by source so you can confirm embeds and previews before your profile goes live.
+                      </p>
+                      <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+                        <Button className="h-11 rounded-full bg-red-600 text-white hover:bg-red-700" onClick={() => setActiveSection("portfolio")}>
+                          Import Portfolio Link
+                        </Button>
+                        <Button variant="outline" className="h-11 rounded-full" onClick={() => setActiveSection("profile")}>
+                          Add Social Links
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
