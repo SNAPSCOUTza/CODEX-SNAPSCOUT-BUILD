@@ -3,9 +3,6 @@ import { Resend } from "resend"
 import { upsertInitialUserProfile } from "@/lib/auth/profile-bootstrap"
 import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(request: Request) {
   try {
     if (!isAdminClientAvailable()) {
@@ -64,11 +61,17 @@ export async function POST(request: Request) {
     const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "https://snapscout.co.za"}/auth/login`
 
     try {
-      await resend.emails.send({
-        from: fromEmail,
-        to: email,
-        subject: "Welcome to SnapScout!",
-        html: `
+      const resendApiKey = process.env.RESEND_API_KEY
+      if (!resendApiKey) {
+        console.warn("[v0] RESEND_API_KEY is not configured; skipping welcome email")
+      } else {
+        const resend = new Resend(resendApiKey)
+
+        await resend.emails.send({
+          from: fromEmail,
+          to: email,
+          subject: "Welcome to SnapScout!",
+          html: `
           <!DOCTYPE html>
           <html>
           <head>
@@ -105,8 +108,9 @@ export async function POST(request: Request) {
           </body>
           </html>
         `,
-      })
-      console.log("[v0] Welcome email sent successfully")
+        })
+        console.log("[v0] Welcome email sent successfully")
+      }
     } catch (emailError) {
       console.error("[v0] Welcome email error:", emailError)
       // Don't fail signup if email fails - user can still sign in
