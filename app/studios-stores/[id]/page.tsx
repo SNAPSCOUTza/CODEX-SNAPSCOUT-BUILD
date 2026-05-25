@@ -2,9 +2,9 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Heart, MapPin, Share2, Sparkles, Star, Wifi, Car, Zap } from "lucide-react"
+import { ArrowLeft, Clock3, Globe, Heart, MapPin, Share2, Sparkles, Star, Wifi, Car, Zap } from "lucide-react"
 import MobileShell from "@/components/mobile/mobile-shell"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,8 @@ export default function StudioStoreDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const [bookingOpen, setBookingOpen] = useState(false)
+  const [activeSlide, setActiveSlide] = useState(0)
+  const carouselRef = useRef<HTMLDivElement | null>(null)
 
   const item = useMemo(() => getStudioStoreById(params.id), [params.id])
 
@@ -44,12 +46,40 @@ export default function StudioStoreDetailPage() {
       "Other",
     ]),
   )
+  const galleryImages = item.gallery?.length
+    ? item.gallery
+    : [
+        item.image,
+        "/images/modern-studio.png",
+        "/images/studio-space.png",
+        "/images/creator-equipment.png",
+        "/images/studio-lighting.png",
+        "/images/warehouse-location.png",
+        "/images/camera-rental.png",
+        "/images/rooftop-location.png",
+      ]
+
+  const openHours = item.operatingHours || (item.type === "store" ? "Mon - Sat · 08:00 - 18:00" : "Daily · 07:00 - 22:00")
 
   return (
     <MobileShell title="Studios & Stores">
       <section className="rounded-[34px] border border-[#e8edf5] bg-white p-3 shadow-[0_16px_34px_rgba(0,0,0,0.06)]">
-        <div className="relative h-[330px] overflow-hidden rounded-[30px]">
-          <Image src={item.image} alt={item.name} fill className="object-cover" />
+        <div className="relative overflow-hidden rounded-[30px]">
+          <div
+            ref={carouselRef}
+            className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto"
+            onScroll={(event) => {
+              const target = event.currentTarget
+              if (!target.clientWidth) return
+              setActiveSlide(Math.round(target.scrollLeft / target.clientWidth))
+            }}
+          >
+            {galleryImages.map((image, index) => (
+              <div key={`${image}-${index}`} className="relative h-[330px] min-w-full snap-start">
+                <Image src={image} alt={`${item.name} image ${index + 1}`} fill className="object-cover" />
+              </div>
+            ))}
+          </div>
 
           <div className="absolute left-3 top-3 right-3 flex items-center justify-between">
             <button
@@ -68,6 +98,21 @@ export default function StudioStoreDetailPage() {
                 <Heart className="h-5 w-5" />
               </button>
             </div>
+          </div>
+          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/30 px-3 py-1.5 backdrop-blur-sm">
+            {galleryImages.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => {
+                  const width = carouselRef.current?.clientWidth || 0
+                  carouselRef.current?.scrollTo({ left: width * index, behavior: "smooth" })
+                  setActiveSlide(index)
+                }}
+                aria-label={`Go to photo ${index + 1}`}
+                className={`h-1.5 w-1.5 rounded-full transition-all ${activeSlide === index ? "w-4 bg-white" : "bg-white/55"}`}
+              />
+            ))}
           </div>
         </div>
 
@@ -112,6 +157,121 @@ export default function StudioStoreDetailPage() {
             >
               Book Now
             </Button>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-[#e6ebf3] bg-[#f7f9fc] p-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-0.5 h-4.5 w-4.5 text-[#4f5867]" />
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6d7480]">Address</p>
+                <p className="mt-1 text-[14px] font-medium text-[#111318]">{item.fullAddress || item.location}</p>
+              </div>
+            </div>
+            <div className="mt-3 h-px bg-[#e3e8f0]" />
+            <div className="mt-3 flex items-start gap-3">
+              <Clock3 className="mt-0.5 h-4.5 w-4.5 text-[#4f5867]" />
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6d7480]">Operating Hours</p>
+                <p className="mt-1 text-[14px] font-medium text-[#111318]">{openHours}</p>
+              </div>
+            </div>
+            <div className="mt-3 h-px bg-[#e3e8f0]" />
+            <a href={item.contact.website} target="_blank" rel="noreferrer" className="mt-3 flex items-start gap-3 text-[#111318] transition hover:opacity-80">
+              <Globe className="mt-0.5 h-4.5 w-4.5 text-[#4f5867]" />
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6d7480]">Website</p>
+                <p className="mt-1 text-[14px] font-medium">{item.contact.website.replace(/^https?:\/\//, "")}</p>
+              </div>
+            </a>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-[#e6ebf3] bg-white p-4">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6d7480]">About this space</p>
+            <p className="mt-2 text-[14px] leading-relaxed text-[#2b3340]">{item.about || item.description}</p>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-[#e6ebf3] bg-white p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6d7480]">Rates & packages</p>
+              <Badge variant="outline" className="rounded-full border-[#e6ebf3] bg-[#f7f9fc] text-[#4f5867]">
+                {item.spaceCount ? `${item.spaceCount} spaces` : "Single space"}
+              </Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#f7f9fc] p-3">
+                <p className="text-[11px] text-[#6d7480]">Hourly</p>
+                <p className="mt-1 text-[14px] font-semibold text-[#111318]">{item.hourlyRate.split(" - ")[0]}</p>
+              </div>
+              <div className="rounded-xl bg-[#f7f9fc] p-3">
+                <p className="text-[11px] text-[#6d7480]">Half day</p>
+                <p className="mt-1 text-[14px] font-semibold text-[#111318]">{item.halfDayRate || "On request"}</p>
+              </div>
+              <div className="rounded-xl bg-[#f7f9fc] p-3">
+                <p className="text-[11px] text-[#6d7480]">Full day</p>
+                <p className="mt-1 text-[14px] font-semibold text-[#111318]">{item.fullDayRate || "On request"}</p>
+              </div>
+              <div className="rounded-xl bg-[#f7f9fc] p-3">
+                <p className="text-[11px] text-[#6d7480]">Peak / Off-peak</p>
+                <p className="mt-1 text-[14px] font-semibold text-[#111318]">{item.peakRate ? `${item.peakRate} · ${item.offPeakRate}` : "On request"}</p>
+              </div>
+            </div>
+            {item.packages?.length ? (
+              <div className="mt-3 space-y-2">
+                {item.packages.map((pkg) => (
+                  <div key={pkg.name} className="rounded-xl border border-[#edf1f7] p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[14px] font-semibold text-[#111318]">{pkg.name}</p>
+                      <p className="text-[14px] font-semibold text-[#f20d14]">{pkg.price}</p>
+                    </div>
+                    <p className="mt-1 text-[13px] text-[#5b6371]">{pkg.description}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {item.gearInventory?.length ? (
+            <div className="mt-4 rounded-2xl border border-[#e6ebf3] bg-white p-4">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6d7480]">Gear inventory</p>
+              <div className="mt-3 space-y-2">
+                {item.gearInventory.map((gear) => (
+                  <div key={gear.name} className="rounded-xl border border-[#edf1f7] p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[14px] font-semibold text-[#111318]">{gear.name}</p>
+                      <Badge variant="outline" className="rounded-full border-[#e6ebf3] bg-[#f7f9fc] text-[#4f5867]">
+                        {gear.availability}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-[13px] text-[#5b6371]">{gear.rate}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-4 rounded-2xl border border-[#e6ebf3] bg-white p-4">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#6d7480]">Booking terms</p>
+            <p className="mt-2 text-[14px] leading-relaxed text-[#2b3340]">
+              {item.termsSummary || "Deposit and rental terms are shared once a booking request is accepted."}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2 text-[13px] text-[#5b6371]">
+              {item.depositPolicy ? <Badge variant="outline" className="rounded-full border-[#e6ebf3] bg-[#f7f9fc]">{item.depositPolicy}</Badge> : null}
+              {item.rentalTermsLink ? (
+                <a href={item.rentalTermsLink} target="_blank" rel="noreferrer" className="rounded-full border border-[#e6ebf3] bg-[#f7f9fc] px-3 py-1.5 hover:opacity-80">
+                  View full terms
+                </a>
+              ) : null}
+            </div>
+            {item.rules?.length ? (
+              <ul className="mt-3 space-y-1 text-[13px] text-[#5b6371]">
+                {item.rules.map((rule) => (
+                  <li key={rule} className="flex items-start gap-2">
+                    <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[#9aa3b2]" />
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
       </section>

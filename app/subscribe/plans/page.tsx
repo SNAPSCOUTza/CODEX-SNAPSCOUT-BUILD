@@ -19,7 +19,7 @@ export default async function SubscriptionPlansPage() {
           </p>
         </div>
 
-        <SubscriptionSelectionInterface userAccountType="Content Creator" showComparison={true} />
+        <SubscriptionSelectionInterface userAccountType="Creator" showComparison={true} />
       </div>
     </div>
   )

@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Send, X } from "lucide-react"
+import { CalendarDays, Check, ChevronLeft, ChevronRight, MapPin, Send, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -76,6 +77,18 @@ const bookingTypeOptionsByTalent: Record<HireRequestSheetProps["talentType"], st
     "Multiple-day rental",
     "Other",
   ],
+}
+
+const PROVINCE_CITIES: Record<string, string[]> = {
+  "Eastern Cape": ["Port Elizabeth", "East London", "Mthatha"],
+  "Free State": ["Bloemfontein", "Welkom", "Bethlehem"],
+  Gauteng: ["Johannesburg", "Pretoria", "Sandton"],
+  "KwaZulu-Natal": ["Durban", "Pietermaritzburg", "Ballito"],
+  Limpopo: ["Polokwane", "Tzaneen", "Mokopane"],
+  Mpumalanga: ["Mbombela", "Witbank", "Secunda"],
+  "North West": ["Rustenburg", "Mahikeng", "Potchefstroom"],
+  "Northern Cape": ["Kimberley", "Upington", "Kuruman"],
+  "Western Cape": ["Cape Town", "Stellenbosch", "Paarl"],
 }
 
 const defaultBriefPlaceholders: Record<HireRequestSheetProps["talentType"], string> = {
@@ -161,6 +174,35 @@ function buildDateOptions(initialDate?: string) {
   return options
 }
 
+function parseRateFromLabel(priceLabel: string) {
+  const numericPart = priceLabel.replace(/[^\d]/g, "")
+  const amount = Number.parseInt(numericPart || "0", 10)
+  const normalized = priceLabel.toLowerCase()
+  return {
+    amount,
+    isHourly: normalized.includes("/hr"),
+    isDaily: normalized.includes("/day"),
+  }
+}
+
+function formatCurrency(amount: number) {
+  return `R${amount.toLocaleString("en-ZA")}`
+}
+
+function getHoursFromDuration(value: string) {
+  if (value === "2-hours") return 2
+  if (value === "3-hours") return 3
+  if (value === "4-hours") return 4
+  return 8
+}
+
+const flowSteps = [
+  { index: 1, label: "Service" },
+  { index: 2, label: "Date & Time" },
+  { index: 3, label: "Details" },
+  { index: 4, label: "Review" },
+] as const
+
 export function HireRequestSheet({
   open,
   onOpenChange,
@@ -176,6 +218,7 @@ export function HireRequestSheet({
   briefLabel = "What do you need?",
   briefPlaceholder,
 }: HireRequestSheetProps) {
+  const [step, setStep] = useState(1)
   const dateOptions = useMemo(() => buildDateOptions(initialDate), [initialDate])
   const finalBookingTypeOptions = useMemo(
     () => bookingTypeOptions?.filter(Boolean) || bookingTypeOptionsByTalent[talentType],
@@ -187,6 +230,9 @@ export function HireRequestSheet({
   const [monthCursor, setMonthCursor] = useState(() => parseDateKey(initialDate || dateOptions[0]?.key) || new Date())
   const [bookingType, setBookingType] = useState("")
   const [duration, setDuration] = useState("all-day")
+  const [province, setProvince] = useState("")
+  const [city, setCity] = useState("")
+  const [address, setAddress] = useState("")
   const [brief, setBrief] = useState("")
   const [sent, setSent] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -197,19 +243,40 @@ export function HireRequestSheet({
   const selectedRangeDays = getInclusiveRangeDays(selectedStartDate, selectedEndDate)
   const needsRange = duration === "multiple-days"
   const hasRequiredRange = !needsRange || Boolean(selectedEndDate)
+  const hasDateStepValid = Boolean(selectedStartDate) && hasRequiredRange
+  const hasDetailsStepValid = Boolean(province) && Boolean(city) && Boolean(address.trim())
   const dateSummary = selectedEndDate
     ? `${formatShortDate(selectedStartDate)} - ${formatShortDate(selectedEndDate)} - ${selectedRangeDays} days`
     : `${formatShortDate(selectedStartDate)} - 1 day`
   const confirmLabel = isListingBooking ? "Confirm booking" : "Confirm hire"
+  const durationLabelValue = durationOptions.find((option) => option.value === duration)?.label || "All day"
+  const priceMeta = useMemo(() => parseRateFromLabel(priceLabel), [priceLabel])
+  const effectiveDays = selectedRangeDays || 1
+  const dailyRate = priceMeta.isDaily ? priceMeta.amount : priceMeta.amount * 8
+  const hourlyHours = getHoursFromDuration(duration)
+  const subtotal =
+    duration === "multiple-days"
+      ? dailyRate * effectiveDays
+      : priceMeta.isHourly
+        ? priceMeta.amount * hourlyHours * effectiveDays
+        : dailyRate * effectiveDays
+  const totalEstimate = Math.max(subtotal, 0)
 
   useEffect(() => {
     if (!open) return
     const nextDate = initialDate || dateOptions[0]?.key || ""
+    setStep(1)
     setSelectedStartDate(nextDate)
     setSelectedEndDate("")
     setMonthCursor(parseDateKey(nextDate) || new Date())
     setShowMonthPicker(false)
     setBookingType("")
+    setDuration("all-day")
+    setProvince("")
+    setCity("")
+    setAddress("")
+    setBrief("")
+    setSent(false)
     setIsClosing(false)
   }, [dateOptions, initialDate, open, talentId])
 
@@ -238,6 +305,7 @@ export function HireRequestSheet({
   }
 
   const handleSubmit = () => {
+    const shootLocation = `${address.trim()}${city ? `, ${city}` : ""}${province ? `, ${province}` : ""}`
     const request = {
       id: `hire-${Date.now()}`,
       talentId,
@@ -248,6 +316,11 @@ export function HireRequestSheet({
       selectedEndDate: selectedEndDate || selectedStartDate,
       dateRangeDays: selectedRangeDays,
       duration,
+      province,
+      city,
+      address,
+      shootLocation,
+      totalEstimate,
       brief,
       status: "pending",
       createdAt: new Date().toISOString(),
@@ -267,6 +340,19 @@ export function HireRequestSheet({
       requestClose()
     }, 900)
   }
+
+  const handleContinue = () => {
+    if (step === 1 && bookingType) setStep(2)
+    if (step === 2 && hasDateStepValid && duration) setStep(3)
+    if (step === 3 && hasDetailsStepValid) setStep(4)
+    if (step === 4 && !sent) handleSubmit()
+  }
+
+  const continueDisabled =
+    (step === 1 && !bookingType) ||
+    (step === 2 && (!hasDateStepValid || !duration)) ||
+    (step === 3 && !hasDetailsStepValid) ||
+    (step === 4 && sent)
 
   return (
     <Dialog
@@ -294,7 +380,7 @@ export function HireRequestSheet({
                 {isListingBooking ? "Book" : "Hire"} {titleTarget}
               </DialogTitle>
               <DialogDescription className="mt-1">
-                Send a {actionLabel} request with date, time, and project details.
+                Send a {actionLabel} request in stages and confirm before submitting.
               </DialogDescription>
             </div>
             <motion.button
@@ -312,13 +398,47 @@ export function HireRequestSheet({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-5">
+          <div className="mx-auto mb-5 flex w-full max-w-[350px] items-center justify-between">
+            {flowSteps.map((item, idx) => (
+              <div key={item.index} className="relative flex flex-1 flex-col items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (item.index < step) setStep(item.index)
+                  }}
+                  className={cn(
+                    "grid h-7 w-7 place-items-center rounded-full border text-[11px] font-bold transition-colors",
+                    item.index === step
+                      ? "border-[#f20d14] bg-[#f20d14] text-white"
+                      : item.index < step
+                        ? "border-[#d8dee8] bg-white text-[#111318]"
+                        : "border-[#e5e9f2] bg-[#f7f9fc] text-[#98a2b3]",
+                  )}
+                >
+                  {item.index}
+                </button>
+                <span
+                  className={cn(
+                    "mt-1 text-center text-[10px] font-medium",
+                    item.index === step ? "text-[#111318]" : "text-[#98a2b3]",
+                  )}
+                >
+                  {item.label}
+                </span>
+                {idx < flowSteps.length - 1 && (
+                  <div className="absolute left-[calc(50%+18px)] top-[13px] h-[1px] w-[calc(100%-36px)] bg-[#e5e9f2]" />
+                )}
+              </div>
+            ))}
+          </div>
+
           <div className="rounded-[22px] border border-[#e8edf5] bg-[#f8fafc] p-4">
             <p className="text-[12px] text-[#667085]">Starting from</p>
             <p className="mt-1 font-mono text-[30px] font-black leading-none">{priceLabel}</p>
           </div>
 
-          <div className="mt-5">
-            <div className="mb-5 grid gap-2">
+          {step === 1 && (
+            <div className="mt-5 grid gap-2">
               <Label className="text-[14px] font-bold">
                 {bookingTypeLabel ||
                   (talentType === "creator"
@@ -340,170 +460,304 @@ export function HireRequestSheet({
                 </SelectContent>
               </Select>
             </div>
+          )}
 
-            <div className="mb-3 flex items-center justify-between">
-              <Label className="text-[14px] font-bold">Select date</Label>
-              <motion.button
-                type="button"
-                onClick={() => setShowMonthPicker((value) => !value)}
-                whileTap={{ scale: 0.9, rotate: -5 }}
-                className="grid h-9 w-9 place-items-center rounded-full bg-red-50 text-[#f20d14] transition-colors hover:bg-red-100"
-                aria-label="Open monthly calendar"
-              >
-                <CalendarDays className="h-4 w-4" />
-              </motion.button>
+          {step === 2 && (
+            <div className="mt-5">
+              <div className="mb-3 flex items-center justify-between">
+                <Label className="text-[14px] font-bold">Select date</Label>
+                <motion.button
+                  type="button"
+                  onClick={() => setShowMonthPicker((value) => !value)}
+                  whileTap={{ scale: 0.9, rotate: -5 }}
+                  className="grid h-9 w-9 place-items-center rounded-full bg-red-50 text-[#f20d14] transition-colors hover:bg-red-100"
+                  aria-label="Open monthly calendar"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                </motion.button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {dateOptions.map((date) => {
+                  const active = selectedStartDate === date.key || selectedEndDate === date.key
+                  const inRange = isBetweenDateKeys(date.key, selectedStartDate, selectedEndDate)
+                  return (
+                    <motion.button
+                      key={date.key}
+                      type="button"
+                      whileTap={{ scale: 0.94 }}
+                      onClick={() => handleDateSelect(date.key)}
+                      className={`grid min-h-[76px] min-w-[64px] place-items-center rounded-2xl border px-2 text-center ${
+                        active
+                          ? "border-[#f20d14] bg-[#f20d14] text-white"
+                          : inRange
+                            ? "border-red-100 bg-red-50 text-[#f20d14]"
+                            : "border-[#e8edf5] bg-white text-[#111318]"
+                      }`}
+                    >
+                      <span className="text-[11px] font-semibold">{date.label}</span>
+                      <span className="font-mono text-[22px] font-black leading-none">{date.day}</span>
+                      <span className="text-[11px]">{date.month}</span>
+                    </motion.button>
+                  )
+                })}
+              </div>
+              <p className="mt-2 text-[12px] font-medium text-[#667085]">
+                {dateSummary}
+                {needsRange && !selectedEndDate ? " - choose an end date" : ""}
+              </p>
+
+              {showMonthPicker && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
+                  className="mt-3 rounded-[24px] border border-[#e8edf5] bg-white p-3 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() =>
+                        setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1, 12))
+                      }
+                      className="grid h-9 w-9 place-items-center rounded-full border border-[#e1e7f1] bg-white"
+                      aria-label="Previous month"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </motion.button>
+                    <p className="text-[14px] font-bold">
+                      {monthCursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
+                    </p>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() =>
+                        setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1, 12))
+                      }
+                      className="grid h-9 w-9 place-items-center rounded-full border border-[#e1e7f1] bg-white"
+                      aria-label="Next month"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </motion.button>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-[#98a2b3]">
+                    {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                      <span key={`${day}-${index}`}>{day}</span>
+                    ))}
+                  </div>
+                  <div className="mt-2 grid grid-cols-7 gap-1">
+                    {monthCells.map((date, index) => {
+                      if (!date) return <div key={`empty-${index}`} className="h-10" />
+                      const active = selectedStartDate === date.key || selectedEndDate === date.key
+                      const inRange = isBetweenDateKeys(date.key, selectedStartDate, selectedEndDate)
+                      return (
+                        <motion.button
+                          key={date.key}
+                          type="button"
+                          whileTap={{ scale: 0.92 }}
+                          onClick={() => handleDateSelect(date.key)}
+                          className={`grid h-10 place-items-center rounded-2xl border text-[13px] font-semibold ${
+                            active
+                              ? "border-[#f20d14] bg-[#f20d14] text-white"
+                              : inRange
+                                ? "border-red-100 bg-red-50 text-[#f20d14]"
+                                : "border-transparent bg-[#f8fafc] text-[#111318]"
+                          }`}
+                        >
+                          {date.day}
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                </motion.div>
+              )}
+
+              <div className="mt-5 grid gap-2">
+                <Label className="text-[14px] font-bold">
+                  {durationLabel ||
+                    (talentType === "studio"
+                      ? "How long do you need the space?"
+                      : talentType === "store"
+                        ? "How long do you need the rental?"
+                        : "How long do you need them?")}
+                </Label>
+                <Select
+                  value={duration}
+                  onValueChange={(value) => {
+                    setDuration(value)
+                    if (value === "multiple-days") setShowMonthPicker(true)
+                  }}
+                >
+                  <SelectTrigger className="h-[52px] rounded-2xl border-[#e1e7f1] bg-white px-4 text-[14px]">
+                    <SelectValue placeholder="Select duration" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl bg-white">
+                    {durationOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="rounded-xl py-3">
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {dateOptions.map((date) => {
-                const active = selectedStartDate === date.key || selectedEndDate === date.key
-                const inRange = isBetweenDateKeys(date.key, selectedStartDate, selectedEndDate)
-                return (
-                  <motion.button
-                    key={date.key}
-                    type="button"
-                    whileTap={{ scale: 0.94 }}
-                    onClick={() => handleDateSelect(date.key)}
-                    className={`grid min-h-[76px] min-w-[64px] place-items-center rounded-2xl border px-2 text-center ${
-                      active
-                        ? "border-[#f20d14] bg-[#f20d14] text-white"
-                        : inRange
-                          ? "border-red-100 bg-red-50 text-[#f20d14]"
-                        : "border-[#e8edf5] bg-white text-[#111318]"
-                    }`}
-                  >
-                    <span className="text-[11px] font-semibold">{date.label}</span>
-                    <span className="font-mono text-[22px] font-black leading-none">{date.day}</span>
-                    <span className="text-[11px]">{date.month}</span>
-                  </motion.button>
-                )
-              })}
+          )}
+
+          {step === 3 && (
+            <div className="mt-5 grid gap-5">
+              <div className="grid gap-2">
+                <Label className="text-[14px] font-bold">Province</Label>
+                <Select
+                  value={province}
+                  onValueChange={(value) => {
+                    setProvince(value)
+                    setCity("")
+                  }}
+                >
+                  <SelectTrigger className="h-[52px] rounded-2xl border-[#e1e7f1] bg-white px-4 text-[14px]">
+                    <SelectValue placeholder="Select province" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl bg-white">
+                    {Object.keys(PROVINCE_CITIES).map((provinceName) => (
+                      <SelectItem key={provinceName} value={provinceName}>
+                        {provinceName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-[14px] font-bold">City / Town</Label>
+                <Select value={city} onValueChange={setCity} disabled={!province}>
+                  <SelectTrigger className="h-[52px] rounded-2xl border-[#e1e7f1] bg-white px-4 text-[14px]">
+                    <SelectValue placeholder={province ? "Select city or town" : "Select a province first"} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl bg-white">
+                    {(PROVINCE_CITIES[province] || []).map((cityName) => (
+                      <SelectItem key={cityName} value={cityName}>
+                        {cityName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-[14px] font-bold">Address</Label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a2b3]" />
+                  <Input
+                    value={address}
+                    onChange={(event) => setAddress(event.target.value)}
+                    placeholder="Street address where the service will happen"
+                    className="h-[52px] rounded-2xl border-[#e1e7f1] bg-white pl-10 text-[14px]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-[14px] font-bold">{briefLabel}</Label>
+                <Textarea
+                  value={brief}
+                  onChange={(event) => setBrief(event.target.value)}
+                  placeholder={briefPlaceholder || defaultBriefPlaceholders[talentType]}
+                  className="min-h-[118px] rounded-2xl border-[#e1e7f1] bg-white text-[14px]"
+                />
+              </div>
             </div>
-            <p className="mt-2 text-[12px] font-medium text-[#667085]">
-              {dateSummary}
-              {needsRange && !selectedEndDate ? " - choose an end date" : ""}
-            </p>
+          )}
 
-            {showMonthPicker && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.24, ease: "easeOut" }}
-                className="mt-3 rounded-[24px] border border-[#e8edf5] bg-white p-3 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() =>
-                      setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1, 12))
-                    }
-                    className="grid h-9 w-9 place-items-center rounded-full border border-[#e1e7f1] bg-white"
-                    aria-label="Previous month"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </motion.button>
-                  <p className="text-[14px] font-bold">
-                    {monthCursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
-                  </p>
-                  <motion.button
-                    type="button"
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() =>
-                      setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1, 12))
-                    }
-                    className="grid h-9 w-9 place-items-center rounded-full border border-[#e1e7f1] bg-white"
-                    aria-label="Next month"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </motion.button>
+          {step === 4 && (
+            <div className="mt-5">
+              <div className="rounded-[22px] border border-[#e8edf5] bg-white p-4">
+                <h4 className="text-[16px] font-bold text-[#111318]">Review & Confirm</h4>
+                <div className="mt-4 grid gap-2 text-[14px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#667085]">Talent</span>
+                    <span className="font-semibold text-[#111318]">{talentName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#667085]">Date</span>
+                    <span className="font-semibold text-[#111318]">{dateSummary}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#667085]">Duration</span>
+                    <span className="font-semibold text-[#111318]">{durationLabelValue}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[#667085]">Location</span>
+                    <span className="text-right font-semibold text-[#111318]">
+                      {address}, {city}, {province}
+                    </span>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[#667085]">Service</span>
+                    <span className="text-right font-semibold text-[#111318]">{bookingType}</span>
+                  </div>
+                  {brief.trim() && (
+                    <div className="rounded-2xl bg-[#f8fafc] p-3 text-[13px] text-[#475467]">
+                      <p className="mb-1 font-semibold text-[#111318]">Project brief</p>
+                      <p>{brief}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-[#98a2b3]">
-                  {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-                    <span key={`${day}-${index}`}>{day}</span>
-                  ))}
-                </div>
-                <div className="mt-2 grid grid-cols-7 gap-1">
-                  {monthCells.map((date, index) => {
-                    if (!date) return <div key={`empty-${index}`} className="h-10" />
-                    const active = selectedStartDate === date.key || selectedEndDate === date.key
-                    const inRange = isBetweenDateKeys(date.key, selectedStartDate, selectedEndDate)
-                    return (
-                      <motion.button
-                        key={date.key}
-                        type="button"
-                        whileTap={{ scale: 0.92 }}
-                        onClick={() => handleDateSelect(date.key)}
-                        className={`grid h-10 place-items-center rounded-2xl border text-[13px] font-semibold ${
-                          active
-                            ? "border-[#f20d14] bg-[#f20d14] text-white"
-                            : inRange
-                              ? "border-red-100 bg-red-50 text-[#f20d14]"
-                              : "border-transparent bg-[#f8fafc] text-[#111318]"
-                        }`}
-                      >
-                        {date.day}
-                      </motion.button>
-                    )
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </div>
+              </div>
 
-          <div className="mt-5 grid gap-2">
-            <Label className="text-[14px] font-bold">
-              {durationLabel || (talentType === "studio" ? "How long do you need the space?" : talentType === "store" ? "How long do you need the rental?" : "How long do you need them?")}
-            </Label>
-            <Select
-              value={duration}
-              onValueChange={(value) => {
-                setDuration(value)
-                if (value === "multiple-days") setShowMonthPicker(true)
-              }}
-            >
-              <SelectTrigger className="h-[52px] rounded-2xl border-[#e1e7f1] bg-white px-4 text-[14px]">
-                <SelectValue placeholder="Select duration" />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl bg-white">
-                {durationOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="rounded-xl py-3">
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="mt-5 grid gap-2">
-            <Label className="text-[14px] font-bold">{briefLabel}</Label>
-            <Textarea
-              value={brief}
-              onChange={(event) => setBrief(event.target.value)}
-              placeholder={briefPlaceholder || defaultBriefPlaceholders[talentType]}
-              className="min-h-[118px] rounded-2xl border-[#e1e7f1] bg-white text-[14px]"
-            />
-          </div>
+              <div className="mt-4 rounded-[22px] border border-[#ece3cf] bg-[#fffaf2] p-4">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#8c6b2a]">Total estimate</p>
+                <p className="mt-1 font-mono text-[30px] font-black text-[#111318]">{formatCurrency(totalEstimate)}</p>
+                <p className="text-[12px] text-[#8c6b2a]">
+                  {duration === "multiple-days"
+                    ? `${effectiveDays} day${effectiveDays > 1 ? "s" : ""} selected`
+                    : `${durationLabelValue} • ${effectiveDays} day${effectiveDays > 1 ? "s" : ""}`}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="sticky bottom-0 z-10 border-t border-[#e8edf5] bg-white px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_26px_rgba(15,23,42,0.08)]">
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!selectedStartDate || !duration || !bookingType || !hasRequiredRange || sent}
-            className="h-[56px] w-full rounded-full bg-[#f20d14] text-[16px] font-semibold text-white hover:bg-[#d9070d]"
-          >
-            {sent ? (
-              <>
-                <Check className="h-4.5 w-4.5" />
-                Request sent
-              </>
-            ) : (
-              <>
-                <Send className="h-4.5 w-4.5" />
-                {confirmLabel}
-              </>
-            )}
-          </Button>
+          <div className="mb-2 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep((current) => Math.max(1, current - 1))}
+              disabled={step === 1}
+              className="h-[52px] flex-1 rounded-full border-[#dbe3ee] bg-white text-[15px] font-semibold text-[#111318]"
+            >
+              Back
+            </Button>
+            <Button
+              type="button"
+              onClick={handleContinue}
+              disabled={continueDisabled}
+              className="h-[52px] flex-1 rounded-full bg-[#f20d14] text-[15px] font-semibold text-white hover:bg-[#d9070d]"
+            >
+              {step === 4 ? (
+                sent ? (
+                  <>
+                    <Check className="h-4.5 w-4.5" />
+                    Request sent
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4.5 w-4.5" />
+                    {confirmLabel}
+                  </>
+                )
+              ) : (
+                "Continue"
+              )}
+            </Button>
+          </div>
+          <div className="rounded-3xl border border-[#e7edf5] bg-[#f8fafc] px-4 py-3">
+            <p className="text-sm font-semibold">{talentName}</p>
+            <p className="mt-1 text-xs text-[#667085]">{city && province ? `${city}, ${province}` : "Location to be confirmed"}</p>
+            <p className="mt-2 text-xs text-[#667085]">
+              {selectedRangeDays} day{selectedRangeDays > 1 ? "s" : ""} • {durationLabelValue}
+            </p>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

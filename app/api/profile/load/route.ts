@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
+import { prisma } from "@/lib/prisma"
 
 function normalizeProfile(profile: any, user: { id: string; email?: string | null }) {
   if (!profile) return null
@@ -28,8 +28,6 @@ function normalizeProfile(profile: any, user: { id: string; email?: string | nul
 
 export async function GET(request: Request) {
   try {
-    const supabaseAdmin = isAdminClientAvailable() ? createAdminClient() : null
-
     console.log("[v0] Profile load request received")
     console.log("[v0] Request URL:", request.url)
     console.log("[v0] Request headers:", Object.fromEntries(request.headers.entries()))
@@ -65,18 +63,9 @@ export async function GET(request: Request) {
 
     console.log("[v0] Loading profile for user:", user.id)
 
-    // Use admin client to bypass RLS and load the profile
-    const profileClient = supabaseAdmin ?? supabase
-    const { data: profile, error } = await profileClient
-      .from("user_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (error) {
-      console.error("[v0] Profile load error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    const profile = await prisma.userProfile.findUnique({
+      where: { user_id: user.id },
+    })
 
     console.log("[v0] Profile loaded:", profile ? "found" : "null")
 

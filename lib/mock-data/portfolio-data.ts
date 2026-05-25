@@ -274,7 +274,7 @@ export const mockCreators: MockCreator[] = [
   {
     id: "creator-4",
     name: "Emma Davis",
-    profession: "Content Creator",
+    profession: "Creator",
     location: "Durban, SA",
     bio: "Social media content specialist creating viral videos for brands.",
     avatar: "https://images.pexels.com/photos/3768894/pexels-photo-3768894.jpeg?auto=compress&cs=tinysrgb&w=200",

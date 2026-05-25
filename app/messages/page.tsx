@@ -7,7 +7,7 @@ import { ConversationList } from "@/components/messaging/conversation-list"
 import { ChatView } from "@/components/messaging/chat-view"
 import { NewConversationModal } from "@/components/messaging/new-conversation-modal"
 import { Button } from "@/components/ui/button"
-import { MessageSquarePlus } from "lucide-react"
+import { ArrowLeft, MessageSquarePlus } from "lucide-react"
 
 function MessagesContent() {
   const searchParams = useSearchParams()
@@ -84,7 +84,20 @@ function MessagesContent() {
         className={`${isMobile ? (selectedConversationId ? "hidden" : "w-full") : "w-80 border-r border-border"} flex flex-col`}
       >
         <div className="p-4 border-b border-border bg-card flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">Messages</h1>
+          <div className="flex items-center gap-2">
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-full"
+                onClick={() => router.back()}
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <h1 className="text-xl font-bold text-foreground">Messages</h1>
+          </div>
           <Button
             onClick={() => setShowNewModal(true)}
             size="sm"

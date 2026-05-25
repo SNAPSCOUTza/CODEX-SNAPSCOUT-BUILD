@@ -157,7 +157,7 @@ export default function MainDashboard({ userId }: { userId: string }) {
         "Job application tracking",
         "Professional badge",
       ],
-      targetUsers: ["Film Crew", "Content Creator"],
+      targetUsers: ["Film Crew", "Creator"],
       popular: false,
     },
     {
@@ -332,7 +332,7 @@ export default function MainDashboard({ userId }: { userId: string }) {
                   if (type === "store" && plan.targetUsers.includes("Store")) return true // Assuming Store is targeted same as Studio or needs update
                   if (
                     (type === "film_crew" || type === "content_creator") &&
-                    (plan.targetUsers.includes("Film Crew") || plan.targetUsers.includes("Content Creator"))
+                    (plan.targetUsers.includes("Film Crew") || plan.targetUsers.includes("Creator"))
                   )
                     return true
 

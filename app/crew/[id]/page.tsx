@@ -124,9 +124,9 @@ export default function CrewProfilePage() {
   return (
     <div className="h-[100dvh] overflow-hidden bg-white text-[#0b0b0d]">
       <div className="no-scrollbar flex h-full snap-x snap-mandatory overflow-x-auto scroll-smooth">
-        <section className="no-scrollbar min-w-full snap-start overflow-y-auto px-4 pb-28 pt-4 sm:px-5 sm:pt-5 md:pb-24">
-          <div className="relative overflow-hidden rounded-[34px] border border-[#e4e9f1] bg-white shadow-[0_18px_40px_rgba(8,10,18,0.08)]">
-            <div className="relative h-[330px] overflow-hidden rounded-[30px] bg-[#f4f6f8]">
+        <section className="no-scrollbar min-w-full snap-start overflow-y-auto px-0 pb-28 pt-0 sm:px-0 sm:pt-0 md:pb-24">
+          <div className="relative overflow-hidden rounded-none border-x-0 border-t-0 border-b border-[#e4e9f1] bg-white shadow-none sm:rounded-[34px] sm:border sm:shadow-[0_18px_40px_rgba(8,10,18,0.08)]">
+            <div className="relative h-[350px] overflow-hidden rounded-none bg-[#f4f6f8] sm:h-[330px] sm:rounded-[30px]">
               <Image src={hero} alt={profile.display_name} fill className="object-cover object-center" priority />
               <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-transparent to-transparent" />
             </div>

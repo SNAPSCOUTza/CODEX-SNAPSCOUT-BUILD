@@ -179,7 +179,7 @@ export default function ClientLocationBudgetStep({ onNext, onPrev, data, updateD
               Store/Brand Benefits
             </h4>
             <ul className="text-sm text-green-800 space-y-1">
-              <li>• Find content creators and photographers</li>
+              <li>• Find creators and photographers</li>
               <li>• Commission product photography and videos</li>
               <li>• Access to marketing and social media professionals</li>
               <li>• Build long-term creator partnerships</li>

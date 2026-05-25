@@ -97,6 +97,7 @@ export default function SubscriptionDashboard({ userId }: { userId: string }) {
       case "Crew":
       case "Film Crew":
       case "Content Creator":
+      case "Creator":
         return { name: "Creator/Crew Membership", price: "R129", interval: "monthly" }
       case "Studio":
       case "Store":

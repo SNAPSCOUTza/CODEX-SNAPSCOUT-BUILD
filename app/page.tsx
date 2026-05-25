@@ -54,7 +54,7 @@ export default function SnapScoutLanding() {
                 </motion.h1>
 
                 <motion.p className="mt-6 text-lg leading-8 text-gray-700 max-w-2xl mx-auto">
-                  Discover talented local photographers, videographers, and content creators in your area based on
+                  Discover talented local photographers, videographers, and creators in your area based on
                   portfolio quality. Your local companion for finding the perfect creative partner
                 </motion.p>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Search, MapPin, Star, Calendar, Award, Loader2, ImageIcon, SlidersHorizontal, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,7 @@ import { StickyScrollCard } from "@/components/ui/sticky-scroll-card"
 export default function CreatorsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("")
+  const [serviceFilter, setServiceFilter] = useState("")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [creators, setCreators] = useState<any[]>([])
   const [hireRequestCreator, setHireRequestCreator] = useState<any | null>(null)
@@ -64,7 +65,7 @@ export default function CreatorsPage() {
           user_id: profileId,
           display_name: profile.display_name || profile.full_name || profile.username || "Unknown",
           full_name: profile.full_name || profile.display_name || profile.username || "Unknown",
-          profession: profile.profession || "Content Creator",
+          profession: profile.profession || "Creator",
           city: profile.city || location?.split(",")[0]?.trim() || "",
           province: profile.province || location?.split(",")[1]?.trim() || "",
           profile_picture: profile.profile_image_url || profile.profile_picture || profile.avatar_url || "",
@@ -103,8 +104,23 @@ export default function CreatorsPage() {
       creator.specializations?.some((spec: string) => spec.toLowerCase().includes(searchTerm.toLowerCase())) ||
       creator.city?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = !filterType || creator.profession?.toLowerCase() === filterType.toLowerCase()
-    return matchesSearch && matchesFilter
+    const matchesService =
+      !serviceFilter ||
+      (creator.specializations || creator.skills || []).some((service: string) =>
+        service.toLowerCase() === serviceFilter.toLowerCase(),
+      )
+    return matchesSearch && matchesFilter && matchesService
   })
+
+  const creatorServices = useMemo(() => {
+    const services = new Set<string>()
+    creators.forEach((creator) => {
+      ;(creator.specializations || creator.skills || []).forEach((service: string) => {
+        if (service) services.add(service)
+      })
+    })
+    return Array.from(services).slice(0, 12)
+  }, [creators])
 
   const getOwnerType = (profession?: string): AvailabilityOwnerType => {
     const value = profession?.toLowerCase() || ""
@@ -137,14 +153,6 @@ export default function CreatorsPage() {
             </Button>
           }
         >
-          {usingMockData && (
-            <MotionRevealSolo className="mb-4">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                Showing mock profiles while live creator accounts are loading.
-              </div>
-            </MotionRevealSolo>
-          )}
-
           <MotionRevealGroup className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
             <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
               <Search className="h-4 w-4 text-[#73757d]" />
@@ -183,6 +191,36 @@ export default function CreatorsPage() {
                   }`}
                 >
                   {item.label}
+                </motion.button>
+              ))}
+            </MotionRevealItem>
+
+            <MotionRevealItem className="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1">
+              <motion.button
+                type="button"
+                onClick={() => setServiceFilter("")}
+                whileTap={{ scale: 0.96 }}
+                className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-medium ${
+                  serviceFilter === ""
+                    ? "border-[#0d0f13] bg-[#0d0f13] text-white"
+                    : "border-[#e7e0d6] bg-white text-[#20232b]"
+                }`}
+              >
+                All services
+              </motion.button>
+              {creatorServices.map((service: string) => (
+                <motion.button
+                  key={service}
+                  type="button"
+                  onClick={() => setServiceFilter(service)}
+                  whileTap={{ scale: 0.96 }}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-medium ${
+                    serviceFilter === service
+                      ? "border-[#0d0f13] bg-[#0d0f13] text-white"
+                      : "border-[#e7e0d6] bg-white text-[#20232b]"
+                  }`}
+                >
+                  {service}
                 </motion.button>
               ))}
             </MotionRevealItem>
@@ -374,6 +412,14 @@ export default function CreatorsPage() {
                   >
                     Videographers
                   </Button>
+                  <SelectServiceButtons
+                    services={creatorServices}
+                    selectedService={serviceFilter}
+                    onSelectService={(service) => {
+                      setServiceFilter(service)
+                      setMobileFiltersOpen(false)
+                    }}
+                  />
                 </div>
               </motion.div>
             </motion.div>
@@ -641,6 +687,37 @@ export default function CreatorsPage() {
           priceLabel={hireRequestCreator.pricing || "R950/hr"}
         />
       )}
+    </div>
+  )
+}
+
+function SelectServiceButtons({
+  services,
+  selectedService,
+  onSelectService,
+}: {
+  services: string[]
+  selectedService: string
+  onSelectService: (service: string) => void
+}) {
+  if (!services.length) return null
+  return (
+    <div className="mt-1 space-y-2">
+      <p className="px-1 text-[12px] font-semibold text-[#555d68]">Services</p>
+      {services.slice(0, 10).map((service) => (
+        <Button
+          key={service}
+          variant={selectedService === service ? "default" : "outline"}
+          className={
+            selectedService === service
+              ? "h-11 rounded-full bg-[#f20d14] text-white shadow-sm transition-transform active:scale-[0.98] hover:bg-[#d80a10]"
+              : "h-11 rounded-full border-[#e7e0d6] bg-white shadow-sm transition-transform active:scale-[0.98]"
+          }
+          onClick={() => onSelectService(service)}
+        >
+          {service}
+        </Button>
+      ))}
     </div>
   )
 }

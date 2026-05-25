@@ -376,66 +376,68 @@ export default function FindCrewPage() {
             </Button>
           }
         >
-          {usingMockData && (
-            <MotionRevealSolo className="mb-4">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                Showing mock crew profiles while live profiles load.
-              </div>
-            </MotionRevealSolo>
-          )}
-
-          <MotionRevealGroup className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
-            <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
-              <Search className="h-4 w-4 text-[#73757d]" />
-              <Input
-                type="text"
-                placeholder="Search crew, role, location..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 border-0 bg-transparent p-0 text-[14px] shadow-none focus-visible:ring-0"
-              />
-              <motion.button
-                type="button"
-                onClick={() => setShowMobileFilters(true)}
-                whileTap={{ scale: 0.92 }}
-                className="grid h-9 w-9 place-items-center rounded-full border border-[#e7e0d6] bg-white"
-                aria-label="Open filters"
-              >
-                <Filter className="h-4 w-4 text-[#111318]" />
-              </motion.button>
-            </MotionRevealItem>
-
-            <MotionRevealItem className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
-              {departments.slice(0, 5).map((dept) => (
+          <MotionRevealGroup className="fixed inset-x-1.5 top-[calc(74px+env(safe-area-inset-top)+12px)] bottom-[calc(102px+env(safe-area-inset-bottom))] z-20 flex flex-col rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
+            {usingMockData && (
+              <MotionRevealSolo className="mb-3">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                  Showing mock crew profiles while live profiles load.
+                </div>
+              </MotionRevealSolo>
+            )}
+            <div className="sticky top-0 z-30 -mx-2 bg-white/95 px-2 pb-2 pt-1 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+              <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
+                <Search className="h-4 w-4 text-[#73757d]" />
+                <Input
+                  type="text"
+                  placeholder="Search crew, role, location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-8 border-0 bg-transparent p-0 text-[14px] shadow-none focus-visible:ring-0"
+                />
                 <motion.button
-                  key={dept}
                   type="button"
-                  onClick={() => toggleDepartment(dept)}
-                  whileTap={{ scale: 0.96 }}
-                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-medium ${
-                    selectedDepartments.includes(dept)
-                      ? "border-[#0d0f13] bg-[#0d0f13] text-white"
-                      : "border-[#e7e0d6] bg-white text-[#20232b]"
-                  }`}
+                  onClick={() => setShowMobileFilters(true)}
+                  whileTap={{ scale: 0.92 }}
+                  className="grid h-9 w-9 place-items-center rounded-full border border-[#e7e0d6] bg-white"
+                  aria-label="Open filters"
                 >
-                  {dept}
+                  <Filter className="h-4 w-4 text-[#111318]" />
                 </motion.button>
-              ))}
-            </MotionRevealItem>
+              </MotionRevealItem>
 
-            {loading ? (
-              <div className="mt-4 space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <Card key={`mobile-skeleton-${i}`} className="rounded-[22px] border-[#eee6db]">
-                    <CardContent className="p-4">
-                      <Skeleton className="h-20 w-full rounded-xl" />
-                    </CardContent>
-                  </Card>
+              <MotionRevealItem className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+                {departments.slice(0, 5).map((dept) => (
+                  <motion.button
+                    key={dept}
+                    type="button"
+                    onClick={() => toggleDepartment(dept)}
+                    whileTap={{ scale: 0.96 }}
+                    className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-medium ${
+                      selectedDepartments.includes(dept)
+                        ? "border-[#0d0f13] bg-[#0d0f13] text-white"
+                        : "border-[#e7e0d6] bg-white text-[#20232b]"
+                    }`}
+                  >
+                    {dept}
+                  </motion.button>
                 ))}
-              </div>
-            ) : filteredCrew.length > 0 ? (
-              <MotionRevealGroup className="mt-4 space-y-4">
-                {filteredCrew.map((member, index) => {
+              </MotionRevealItem>
+            </div>
+
+            <div className="no-scrollbar mt-4 flex-1 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={`mobile-skeleton-${i}`} className="rounded-[22px] border-[#eee6db]">
+                      <CardContent className="p-4">
+                        <Skeleton className="h-20 w-full rounded-xl" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : filteredCrew.length > 0 ? (
+                <MotionRevealGroup className="space-y-4">
+                  {filteredCrew.map((member, index) => {
                   const projectCount = Math.round(((member.rating || 4.8) - 3.8) * 120)
                   const yearsCount = Number(member.years_experience?.replace(/\D/g, "").slice(0, 1) || 4)
                   const responseRate = Math.min(99, Math.round((member.rating || 4.8) * 20))
@@ -522,18 +524,24 @@ export default function FindCrewPage() {
                   </Card>
                   </StickyScrollCard>
                   )
-                })}
-              </MotionRevealGroup>
-            ) : (
-              <MotionRevealItem className="mt-4">
-                <div className="py-10 text-center">
-                  <p className="text-[14px] font-medium text-[#1a1d22]">No crew matched these filters.</p>
-                  <Button variant="outline" className="mt-3 rounded-full border-[#e7e0d6] bg-white" onClick={clearAllFilters}>
-                    Clear Filters
-                  </Button>
-                </div>
-              </MotionRevealItem>
-            )}
+                  })}
+                </MotionRevealGroup>
+              ) : (
+                <MotionRevealItem>
+                  <div className="py-10 text-center">
+                    <p className="text-[14px] font-medium text-[#1a1d22]">No crew matched these filters.</p>
+                    <Button
+                      variant="outline"
+                      className="mt-3 rounded-full border-[#e7e0d6] bg-white"
+                      onClick={clearAllFilters}
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                </MotionRevealItem>
+              )}
+              <div className="h-1" />
+            </div>
           </MotionRevealGroup>
 
           <Dialog open={showMobileFilters} onOpenChange={setShowMobileFilters}>

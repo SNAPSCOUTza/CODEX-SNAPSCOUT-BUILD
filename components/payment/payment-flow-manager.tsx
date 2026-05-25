@@ -144,7 +144,7 @@ export default function PaymentFlowManager({ userId, currentPlan, onPaymentSucce
         },
         body: JSON.stringify({
           email: userEmail,
-          accountType: planId === "creators-crew" ? "Content Creator" : "Studio",
+          accountType: planId === "creators-crew" ? "Creator" : "Studio",
           userId: userId,
           planId: planId,
           amount: planDetails.amount,

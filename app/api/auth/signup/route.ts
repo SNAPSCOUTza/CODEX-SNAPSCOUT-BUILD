@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
-import { upsertInitialUserProfile } from "@/lib/auth/profile-bootstrap"
+import { prisma } from "@/lib/prisma"
 import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
 
 export async function POST(request: Request) {
@@ -42,18 +42,20 @@ export async function POST(request: Request) {
 
     console.log("[v0] User created and auto-confirmed:", userData.user.id)
 
-    const { error: profileError } = await upsertInitialUserProfile(supabaseAdmin, {
-      userId: userData.user.id,
-      email,
-      displayName: display_name,
-      accountType: account_type,
-      isProfileVisible: false,
-    })
-
-    if (profileError) {
-      console.error("[v0] Profile creation error:", profileError.message)
-    } else {
+    try {
+      await prisma.userProfile.create({
+        data: {
+          user_id: userData.user.id,
+          email: email,
+          full_name: display_name,
+          display_name: display_name,
+          account_type: account_type,
+          subscription_status: account_type === "scout" ? "active" : "inactive",
+        },
+      })
       console.log("[v0] user_profiles row created successfully for user:", userData.user.id)
+    } catch (profileError: any) {
+      console.error("[v0] Profile creation error:", profileError.message)
     }
 
     const senderEmail = process.env.SENDER_EMAIL || "noreply@updates.snapscout.co.za"

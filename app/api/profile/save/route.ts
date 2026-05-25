@@ -1,12 +1,10 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
+import { prisma } from "@/lib/prisma"
 
 export async function POST(request: Request) {
   try {
-    const supabaseAdmin = isAdminClientAvailable() ? createAdminClient() : null
-
     const profileData = await request.json()
     console.log("[v0] Profile save request received for user:", profileData.id || profileData.user_id)
 
@@ -52,7 +50,7 @@ export async function POST(request: Request) {
     const profilePicture = profileData.profile_image_url || profileData.profile_picture || profileData.avatar_url || null
     const isVisible = profileData.is_profile_visible ?? profileData.is_public ?? true
 
-    const dataToSave = {
+    const dataToSave: any = {
       user_id: user.id,
       full_name: profileData.full_name || null,
       display_name: profileData.display_name || null,
@@ -79,61 +77,33 @@ export async function POST(request: Request) {
       hourly_rate: profileData.hourly_rate || null,
       daily_rate: profileData.daily_rate || null,
       project_rate: profileData.project_rate || null,
-      updated_at: new Date().toISOString(),
+      onboarding_data: profileData.onboarding_data || null,
+      updated_at: new Date(),
     }
 
     console.log("[v0] Upserting profile with data:", JSON.stringify(dataToSave, null, 2))
 
-    const profileClient = supabaseAdmin ?? supabase
+    const data = await prisma.userProfile.upsert({
+      where: { user_id: user.id },
+      update: { ...dataToSave, updated_at: new Date() },
+      create: dataToSave,
+    })
 
-    let { data, error } = await profileClient
-      .from("user_profiles")
-      .upsert(dataToSave, { onConflict: "user_id" })
-      .select()
-      .single()
-
-    // Graceful fallback for legacy account_type constraints.
-    if (error?.message?.toLowerCase().includes("account_type")) {
-      const retryPayload = { ...dataToSave, account_type: null }
-      const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
-      data = retry.data
-      error = retry.error
-    }
-
-    // Graceful fallback for databases that do not yet have availability_status.
-    if (error?.message?.toLowerCase().includes("availability_status")) {
-      const { availability_status, ...retryPayload } = dataToSave
-      const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
-      data = retry.data
-      error = retry.error
-    }
-
-    // Graceful fallback for databases that do not yet have new social portfolio columns.
-    if (error?.message?.toLowerCase().includes("facebook") || error?.message?.toLowerCase().includes("vimeo") || error?.message?.toLowerCase().includes("imdb_profile")) {
-      const { facebook, vimeo, imdb_profile, ...retryPayload } = dataToSave
-      const retry = await profileClient.from("user_profiles").upsert(retryPayload, { onConflict: "user_id" }).select().single()
-      data = retry.data
-      error = retry.error
-    }
-
-    if (error) {
-      console.error("[v0] Profile save error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    const normalized = data
+    const savedProfile: any = data
+    const normalized = savedProfile
       ? {
-          ...data,
-          id: data.id || data.user_id || user.id,
-          user_id: data.user_id || user.id,
-          avatar_url: data.profile_image_url || data.profile_picture || null,
-          profile_picture: data.profile_image_url || data.profile_picture || null,
-          profile_image_url: data.profile_image_url || data.profile_picture || null,
-          username: data.username || data.display_name || data.full_name || null,
-          is_public: data.is_public ?? data.is_profile_visible ?? true,
-          is_profile_visible: data.is_profile_visible ?? data.is_public ?? true,
+          ...savedProfile,
+          id: savedProfile.id || savedProfile.user_id || user.id,
+          user_id: savedProfile.user_id || user.id,
+          avatar_url: savedProfile.profile_image_url || savedProfile.profile_picture || null,
+          profile_picture: savedProfile.profile_image_url || savedProfile.profile_picture || null,
+          profile_image_url: savedProfile.profile_image_url || savedProfile.profile_picture || null,
+          username: savedProfile.username || savedProfile.display_name || savedProfile.full_name || null,
+          is_public: savedProfile.is_public ?? savedProfile.is_profile_visible ?? true,
+          is_profile_visible: savedProfile.is_profile_visible ?? savedProfile.is_public ?? true,
           subscription_status:
-            data.subscription_status || (data.account_type?.toLowerCase?.() === "scout" ? "active" : "inactive"),
+            savedProfile.subscription_status ||
+            (savedProfile.account_type?.toLowerCase?.() === "scout" ? "active" : "inactive"),
         }
       : null
 

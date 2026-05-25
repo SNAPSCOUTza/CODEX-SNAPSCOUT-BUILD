@@ -3,14 +3,40 @@ export type StudioStoreItem = {
   name: string
   type: "studio" | "store"
   location: string
+  fullAddress?: string
+  province?: string
+  city?: string
+  neighbourhood?: string
   rating: number
   reviews: number
   image: string
+  gallery?: string[]
   description: string
+  about?: string
   services: string[]
+  packages?: Array<{
+    name: string
+    price: string
+    description: string
+  }>
   equipment: string[]
+  gearInventory?: Array<{
+    name: string
+    rate: string
+    availability: string
+  }>
   amenities: string[]
+  rules?: string[]
+  termsSummary?: string
+  rentalTermsLink?: string
+  operatingHours?: string
+  depositPolicy?: string
+  spaceCount?: number
   hourlyRate: string
+  halfDayRate?: string
+  fullDayRate?: string
+  peakRate?: string
+  offPeakRate?: string
   contact: {
     phone: string
     email: string
@@ -26,18 +52,81 @@ export const studiosStoresData: StudioStoreItem[] = [
     name: "Cape Town Film Studios",
     type: "studio",
     location: "Cape Town, Western Cape",
+    fullAddress: "88 Sir Lowry Road, Woodstock, Cape Town, 7925",
+    province: "Western Cape",
+    city: "Cape Town",
+    neighbourhood: "Woodstock",
     rating: 4.8,
     reviews: 124,
     image: "/images/film-clapperboard.jpg",
-    description: "Full-service film and television production studio with state-of-the-art equipment and experienced crew.",
+    gallery: [
+      "/images/film-clapperboard.jpg",
+      "/images/photography-workspace.jpg",
+      "/images/kyle-loftus-FtQE89f3EXA-unsplash.jpg",
+      "/images/janelle-hiroshige-gfG_csFvelY-unsplash.jpg",
+      "/images/videography-camera.jpg",
+      "/images/marco-xu-ToUPBCO62Lw-unsplash.jpg",
+    ],
+    description:
+      "Full-service film and television production studio with premium natural light zones, controlled black-out areas, and production-ready support.",
+    about:
+      "Cape Town Film Studios is a multi-room production space used for commercials, branded campaigns, interviews, product shoots, and long-form sets. The team offers on-site support, flexible packages, and optional gear rentals for lean crews and larger productions.",
     services: ["Film Production", "TV Production", "Commercial Shoots", "Equipment Rental"],
+    packages: [
+      {
+        name: "Hourly Studio Access",
+        price: "R2,500/hr",
+        description: "Ideal for short shoots, interviews, and content days.",
+      },
+      {
+        name: "Half Day Package",
+        price: "R9,800",
+        description: "Up to 5 hours with base lighting setup and parking.",
+      },
+      {
+        name: "Full Day Production",
+        price: "R17,500",
+        description: "Up to 10 hours, support crew desk, and makeup bay access.",
+      },
+    ],
     equipment: ["RED Cameras", "Lighting Rigs", "Sound Equipment", "Editing Suites"],
-    amenities: ["Natural Light", "Wi-Fi", "Parking", "Power"],
+    gearInventory: [
+      { name: "RED Komodo 6K Kit", rate: "R3,900/day", availability: "Available" },
+      { name: "Aputure 600D Pro Lighting Set", rate: "R1,250/day", availability: "Available" },
+      { name: "Sennheiser Wireless Audio Kit", rate: "R780/day", availability: "Limited" },
+      { name: "Motorized Slider + Tripod Combo", rate: "R640/day", availability: "Available" },
+    ],
+    amenities: [
+      "Natural Light",
+      "Wi-Fi",
+      "Parking",
+      "Power",
+      "Makeup Room",
+      "Editing Bay",
+      "Client Lounge",
+      "Load-in Access",
+    ],
+    rules: [
+      "No smoking inside the studio.",
+      "Overtime billed in 30-minute increments.",
+      "Music volume after 20:00 must be kept moderate.",
+      "All rented gear must be checked at return.",
+    ],
+    termsSummary:
+      "50% deposit to confirm booking. Damage liability applies to rented gear. Cancellations within 24h are non-refundable.",
+    rentalTermsLink: "https://www.capetownfilmstudios.co.za/terms",
+    operatingHours: "Daily · 07:00 - 22:00",
+    depositPolicy: "50% upfront · balance due before wrap",
+    spaceCount: 4,
     hourlyRate: "R2,500 - R5,000",
+    halfDayRate: "R9,800",
+    fullDayRate: "R17,500",
+    peakRate: "R3,100/hr",
+    offPeakRate: "R2,200/hr",
     contact: {
       phone: "+27 21 123 4567",
       email: "info@capetownfilmstudios.co.za",
-      website: "www.capetownfilmstudios.co.za",
+      website: "https://www.capetownfilmstudios.co.za",
     },
     verified: true,
     availability: "Available",

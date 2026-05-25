@@ -161,7 +161,7 @@ export default function ContactUs() {
                           <SelectValue placeholder="Select your account type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="content-creator">Content Creator</SelectItem>
+                          <SelectItem value="content-creator">Creator</SelectItem>
                           <SelectItem value="film-crew">Film Crew</SelectItem>
                           <SelectItem value="studio">Studio</SelectItem>
                           <SelectItem value="scout">Scout</SelectItem>

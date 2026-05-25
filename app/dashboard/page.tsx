@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import {
   User,
@@ -27,6 +28,15 @@ import {
   ImageIcon,
   ExternalLink,
   PlayCircle,
+  FolderKanban,
+  Compass,
+  Package,
+  Bell,
+  ClipboardList,
+  FileText,
+  MapPin,
+  Clock3,
+  Warehouse,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -73,11 +83,70 @@ interface UserProfile {
   skills?: any
   pricing?: string
   subscription_status?: string
+  onboarding_data?: Record<string, any>
 }
 
 interface UserSubscription {
   status: string
   next_payment_date?: string
+}
+
+interface StudioStoreDashboardSettings {
+  business_name: string
+  logo_url: string
+  showroom_photo_url: string
+  map_link: string
+  location_address: string
+  operating_hours: string
+  day_rate: string
+  half_day_rate: string
+  hourly_rate: string
+  full_day_rate: string
+  peak_rate: string
+  off_peak_rate: string
+  custom_packages: string
+  listing_description: string
+  listing_features: string
+  listing_rules: string
+  multiple_spaces: string
+  owned_gear_list: string
+  rentable_gear_list: string
+  inventory_items: string
+  credits: string
+  rental_terms_summary: string
+  full_terms: string
+  deposit_tracking_notes: string
+  rental_request_notes: string
+  notifications_notes: string
+}
+
+const DEFAULT_STUDIO_STORE_SETTINGS: StudioStoreDashboardSettings = {
+  business_name: "",
+  logo_url: "",
+  showroom_photo_url: "",
+  map_link: "",
+  location_address: "",
+  operating_hours: "",
+  day_rate: "",
+  half_day_rate: "",
+  hourly_rate: "",
+  full_day_rate: "",
+  peak_rate: "",
+  off_peak_rate: "",
+  custom_packages: "",
+  listing_description: "",
+  listing_features: "",
+  listing_rules: "",
+  multiple_spaces: "",
+  owned_gear_list: "",
+  rentable_gear_list: "",
+  inventory_items: "",
+  credits: "",
+  rental_terms_summary: "",
+  full_terms: "",
+  deposit_tracking_notes: "",
+  rental_request_notes: "",
+  notifications_notes: "",
 }
 
 const SOUTH_AFRICA_PROVINCES = [
@@ -353,6 +422,7 @@ export default function DashboardPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const initialProfileRef = useRef<UserProfile | null>(null)
+  const initialStudioStoreSettingsRef = useRef<StudioStoreDashboardSettings>(DEFAULT_STUDIO_STORE_SETTINGS)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const [profileData, setProfileData] = useState<UserProfile>({
@@ -384,6 +454,10 @@ export default function DashboardPage() {
   const [instagramImportMessage, setInstagramImportMessage] = useState("")
   const [portfolioItems, setPortfolioItems] = useState<ProfilePortfolioItem[]>([])
   const [portfolioItemsLoading, setPortfolioItemsLoading] = useState(false)
+  const [onboardingData, setOnboardingData] = useState<Record<string, any>>({})
+  const [studioStoreSettings, setStudioStoreSettings] = useState<StudioStoreDashboardSettings>(
+    DEFAULT_STUDIO_STORE_SETTINGS,
+  )
 
   const [profileCompleteness, setProfileCompleteness] = useState(0)
 
@@ -397,6 +471,7 @@ export default function DashboardPage() {
           : profileData.profession?.toLowerCase().includes("video")
             ? "videographer"
             : "crew"
+  const isStudioOrStoreAccount = profileData.account_type === "studio" || profileData.account_type === "store"
 
   const hasUnsavedChanges = useCallback(() => {
     if (!initialProfileRef.current) return false
@@ -406,8 +481,12 @@ export default function DashboardPage() {
       location: selectedProvince && selectedCity ? `${selectedCity}, ${selectedProvince}` : profileData.location,
     }
 
-    return !isEqual(currentProfile, initialProfileRef.current)
-  }, [profileData, selectedProvince, selectedCity])
+    const profileChanged = !isEqual(currentProfile, initialProfileRef.current)
+    const studioSettingsChanged =
+      isStudioOrStoreAccount && !isEqual(studioStoreSettings, initialStudioStoreSettingsRef.current)
+
+    return profileChanged || studioSettingsChanged
+  }, [isStudioOrStoreAccount, profileData, selectedProvince, selectedCity, studioStoreSettings])
 
   const gallerySections = useMemo(() => {
     const sections: Array<{
@@ -495,6 +574,12 @@ export default function DashboardPage() {
     }
   }, [profileData, selectedProvince, selectedCity, hasUnsavedChanges])
 
+  useEffect(() => {
+    if (initialProfileRef.current && hasUnsavedChanges()) {
+      setSaveStatus("unsaved")
+    }
+  }, [hasUnsavedChanges, studioStoreSettings])
+
   const loadProfile = async (userId: string) => {
     setLoading(true)
     try {
@@ -545,6 +630,15 @@ export default function DashboardPage() {
 
         setProfileData(newProfileData)
         initialProfileRef.current = newProfileData
+        const loadedOnboardingData =
+          profile.onboarding_data && typeof profile.onboarding_data === "object" ? profile.onboarding_data : {}
+        setOnboardingData(loadedOnboardingData)
+        const loadedStudioStoreSettings = {
+          ...DEFAULT_STUDIO_STORE_SETTINGS,
+          ...(loadedOnboardingData?.studio_store_dashboard || {}),
+        }
+        setStudioStoreSettings(loadedStudioStoreSettings)
+        initialStudioStoreSettingsRef.current = loadedStudioStoreSettings
 
         const completeness = calculateProfileCompleteness(profile)
         setProfileCompleteness(completeness)
@@ -679,6 +773,13 @@ export default function DashboardPage() {
     }))
   }
 
+  const handleStudioStoreSettingChange = (field: keyof StudioStoreDashboardSettings, value: string) => {
+    setStudioStoreSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
   const handleImageUpload = (file: File, field: "profile_image_url" | "portfolio_images") => {
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -712,6 +813,10 @@ export default function DashboardPage() {
 
     try {
       const location = selectedProvince && selectedCity ? `${selectedCity}, ${selectedProvince}` : profileData.location
+      const mergedOnboardingData = {
+        ...(onboardingData || {}),
+        ...(isStudioOrStoreAccount ? { studio_store_dashboard: studioStoreSettings } : {}),
+      }
 
       const profileToSave = {
         id: user.id,
@@ -729,6 +834,7 @@ export default function DashboardPage() {
         portfolio_images: profileData.portfolio_images,
         pricing: profileData.pricing,
         skills: profileData.skills,
+        onboarding_data: mergedOnboardingData,
         updated_at: new Date().toISOString(),
       }
 
@@ -751,7 +857,10 @@ export default function DashboardPage() {
         initialProfileRef.current = {
           ...profileData,
           location,
+          onboarding_data: mergedOnboardingData,
         }
+        setOnboardingData(mergedOnboardingData)
+        initialStudioStoreSettingsRef.current = studioStoreSettings
         setSaveStatus("saved")
 
         const completeness = calculateProfileCompleteness(result.profile)
@@ -961,12 +1070,12 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
+          <div className="flex min-h-16 flex-wrap justify-between gap-3 py-2">
+            <div className="flex min-w-0 items-center gap-3">
               <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
               <SaveStatusIndicator />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="hidden items-center gap-4 md:flex">
               <Button
                 onClick={handleSaveProfile}
                 disabled={saveStatus === "saving"}
@@ -1057,21 +1166,62 @@ export default function DashboardPage() {
                     { id: "profile", icon: User, label: "Profile" },
                     { id: "portfolio", icon: Briefcase, label: "Portfolio" },
                     { id: "gallery", icon: ImageIcon, label: "Gallery" },
+                    ...(isStudioOrStoreAccount
+                      ? [{ id: "business", icon: Warehouse, label: "Studio / Store Ops" }]
+                      : []),
                     { id: "settings", icon: Settings, label: "Settings" },
                     { id: "subscription", icon: CreditCard, label: "Subscription" },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveSection(item.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-left transition-colors ${
-                        activeSection === item.id ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-100"
-                      }`}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.label}
-                    </button>
-                  ))}
+                    { id: "crew-pools", icon: FolderKanban, label: "Crew Pools", href: "/crew-pools" },
+                    { id: "community", icon: Compass, label: "Community", href: "/community" },
+                  ].map((item) =>
+                    item.href ? (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-gray-600 transition-colors hover:bg-gray-100"
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveSection(item.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-left transition-colors ${
+                          activeSection === item.id ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {item.label}
+                      </button>
+                    ),
+                  )}
                 </nav>
+
+                <div className="mt-6 space-y-2 border-t border-gray-100 pt-4 md:hidden">
+                  <Button
+                    onClick={handleSaveProfile}
+                    disabled={saveStatus === "saving"}
+                    variant={saveStatus === "unsaved" ? "default" : "outline"}
+                    className={`h-11 w-full rounded-full ${saveStatus === "unsaved" ? "bg-red-500 hover:bg-red-600 text-white" : ""}`}
+                  >
+                    {saveStatus === "saving" ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                  <Button variant="outline" onClick={handleSignOut} className="h-11 w-full rounded-full">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </aside>
@@ -1641,6 +1791,281 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {activeSection === "business" && isStudioOrStoreAccount && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Store / Studio Identity</CardTitle>
+                    <CardDescription>Brand details shown to clients browsing your listing.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <Label>Business name</Label>
+                      <Input
+                        value={studioStoreSettings.business_name}
+                        onChange={(e) => handleStudioStoreSettingChange("business_name", e.target.value)}
+                        placeholder="Cape Town Film Studios"
+                      />
+                    </div>
+                    <div>
+                      <Label>Logo URL</Label>
+                      <Input
+                        value={studioStoreSettings.logo_url}
+                        onChange={(e) => handleStudioStoreSettingChange("logo_url", e.target.value)}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div>
+                      <Label>Showroom / space photo</Label>
+                      <Input
+                        value={studioStoreSettings.showroom_photo_url}
+                        onChange={(e) => handleStudioStoreSettingChange("showroom_photo_url", e.target.value)}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div>
+                      <Label>Map link</Label>
+                      <Input
+                        value={studioStoreSettings.map_link}
+                        onChange={(e) => handleStudioStoreSettingChange("map_link", e.target.value)}
+                        placeholder="Google Maps link"
+                      />
+                    </div>
+                    <div>
+                      <Label>Location address</Label>
+                      <Input
+                        value={studioStoreSettings.location_address}
+                        onChange={(e) => handleStudioStoreSettingChange("location_address", e.target.value)}
+                        placeholder="Street address"
+                      />
+                    </div>
+                    <div>
+                      <Label>Operating hours</Label>
+                      <Input
+                        value={studioStoreSettings.operating_hours}
+                        onChange={(e) => handleStudioStoreSettingChange("operating_hours", e.target.value)}
+                        placeholder="Mon-Fri 08:00-18:00"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Rates Management</CardTitle>
+                    <CardDescription>Set your base rates and optional package pricing.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div>
+                      <Label>Hourly rate</Label>
+                      <Input
+                        value={studioStoreSettings.hourly_rate}
+                        onChange={(e) => handleStudioStoreSettingChange("hourly_rate", e.target.value)}
+                        placeholder="R450/hr"
+                      />
+                    </div>
+                    <div>
+                      <Label>Half day rate</Label>
+                      <Input
+                        value={studioStoreSettings.half_day_rate}
+                        onChange={(e) => handleStudioStoreSettingChange("half_day_rate", e.target.value)}
+                        placeholder="R2,000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Full day rate</Label>
+                      <Input
+                        value={studioStoreSettings.full_day_rate}
+                        onChange={(e) => handleStudioStoreSettingChange("full_day_rate", e.target.value)}
+                        placeholder="R3,500"
+                      />
+                    </div>
+                    <div>
+                      <Label>Day rate</Label>
+                      <Input
+                        value={studioStoreSettings.day_rate}
+                        onChange={(e) => handleStudioStoreSettingChange("day_rate", e.target.value)}
+                        placeholder="R3,000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Peak rate</Label>
+                      <Input
+                        value={studioStoreSettings.peak_rate}
+                        onChange={(e) => handleStudioStoreSettingChange("peak_rate", e.target.value)}
+                        placeholder="Weekend/holiday premium"
+                      />
+                    </div>
+                    <div>
+                      <Label>Off-peak rate</Label>
+                      <Input
+                        value={studioStoreSettings.off_peak_rate}
+                        onChange={(e) => handleStudioStoreSettingChange("off_peak_rate", e.target.value)}
+                        placeholder="Weekday discount"
+                      />
+                    </div>
+                    <div className="md:col-span-3">
+                      <Label>Custom packages</Label>
+                      <Textarea
+                        value={studioStoreSettings.custom_packages}
+                        onChange={(e) => handleStudioStoreSettingChange("custom_packages", e.target.value)}
+                        placeholder="Half-day + lighting package, Full-day + assistant package..."
+                        rows={3}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Listing Management</CardTitle>
+                    <CardDescription>Edit your listing details, features, rules, and multiple spaces.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea
+                        value={studioStoreSettings.listing_description}
+                        onChange={(e) => handleStudioStoreSettingChange("listing_description", e.target.value)}
+                        placeholder="Describe your space/store, vibe, ideal use cases..."
+                        rows={4}
+                      />
+                    </div>
+                    <div>
+                      <Label>Features & amenities</Label>
+                      <Textarea
+                        value={studioStoreSettings.listing_features}
+                        onChange={(e) => handleStudioStoreSettingChange("listing_features", e.target.value)}
+                        placeholder="Natural light, power backup, Wi-Fi, makeup station..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Rules</Label>
+                      <Textarea
+                        value={studioStoreSettings.listing_rules}
+                        onChange={(e) => handleStudioStoreSettingChange("listing_rules", e.target.value)}
+                        placeholder="Noise restrictions, overtime policy, cleaning expectations..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Multiple space management</Label>
+                      <Textarea
+                        value={studioStoreSettings.multiple_spaces}
+                        onChange={(e) => handleStudioStoreSettingChange("multiple_spaces", e.target.value)}
+                        placeholder="Room A, Room B, Rooftop deck, blackout stage..."
+                        rows={3}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Gear & Inventory</CardTitle>
+                    <CardDescription>
+                      Manage owned gear, rentable equipment, and store inventory pricing/availability.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Owned equipment list</Label>
+                      <Textarea
+                        value={studioStoreSettings.owned_gear_list}
+                        onChange={(e) => handleStudioStoreSettingChange("owned_gear_list", e.target.value)}
+                        placeholder="Sony FX6, Aputure 600D, Sennheiser wireless kit..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Gear available for hire</Label>
+                      <Textarea
+                        value={studioStoreSettings.rentable_gear_list}
+                        onChange={(e) => handleStudioStoreSettingChange("rentable_gear_list", e.target.value)}
+                        placeholder="Item + daily rate + availability notes..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Inventory management</Label>
+                      <Textarea
+                        value={studioStoreSettings.inventory_items}
+                        onChange={(e) => handleStudioStoreSettingChange("inventory_items", e.target.value)}
+                        placeholder="Add gear items with specs, photos, rates, and stock counts..."
+                        rows={4}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Credits, Deposits & Requests</CardTitle>
+                    <CardDescription>
+                      Track social proof, rental terms, deposits, incoming requests, and notification notes.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Credits section</Label>
+                      <Textarea
+                        value={studioStoreSettings.credits}
+                        onChange={(e) => handleStudioStoreSettingChange("credits", e.target.value)}
+                        placeholder="Past clients, campaigns, productions worked on..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Rental terms summary</Label>
+                      <Textarea
+                        value={studioStoreSettings.rental_terms_summary}
+                        onChange={(e) => handleStudioStoreSettingChange("rental_terms_summary", e.target.value)}
+                        placeholder="Short terms summary shown on listing..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Full terms and conditions</Label>
+                      <Textarea
+                        value={studioStoreSettings.full_terms}
+                        onChange={(e) => handleStudioStoreSettingChange("full_terms", e.target.value)}
+                        placeholder="Paste or write full booking/rental terms..."
+                        rows={5}
+                      />
+                    </div>
+                    <div>
+                      <Label>Deposit tracking</Label>
+                      <Textarea
+                        value={studioStoreSettings.deposit_tracking_notes}
+                        onChange={(e) => handleStudioStoreSettingChange("deposit_tracking_notes", e.target.value)}
+                        placeholder="Booking #, deposit paid, outstanding deposit, due date..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Rental request management</Label>
+                      <Textarea
+                        value={studioStoreSettings.rental_request_notes}
+                        onChange={(e) => handleStudioStoreSettingChange("rental_request_notes", e.target.value)}
+                        placeholder="Incoming requests, approve/decline outcomes, active rentals..."
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <Label>Notification centre notes</Label>
+                      <Textarea
+                        value={studioStoreSettings.notifications_notes}
+                        onChange={(e) => handleStudioStoreSettingChange("notifications_notes", e.target.value)}
+                        placeholder="Missed alerts, follow-ups, payment reminders..."
+                        rows={3}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
             {activeSection === "subscription" && (

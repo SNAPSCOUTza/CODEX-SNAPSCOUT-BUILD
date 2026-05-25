@@ -54,7 +54,7 @@ const subscriptionPlans: SubscriptionPlan[] = [
     description: "Perfect for individual creators, freelancers, and film crew professionals",
     icon: Camera,
     popular: true,
-    targetUsers: ["Film Crew", "Content Creator", "Photographer", "Videographer"],
+    targetUsers: ["Film Crew", "Creator", "Photographer", "Videographer"],
     features: [
       "Professional profile visibility",
       "Unlimited portfolio uploads",

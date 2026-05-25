@@ -29,7 +29,7 @@ export default function JoinSnapScout() {
 
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-          {/* Content Creators */}
+          {/* Creators */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -40,7 +40,7 @@ export default function JoinSnapScout() {
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Camera className="w-8 h-8 text-red-600" />
                 </div>
-                <CardTitle className="text-xl">Content Creators</CardTitle>
+                <CardTitle className="text-xl">Creators</CardTitle>
                 <CardDescription>Photographers & Videographers</CardDescription>
                 <div className="mt-4">
                   <span className="text-3xl font-bold text-red-600">R129</span>

@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useEffect, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
-import { Smartphone } from "lucide-react"
 
 type DevicePreset = {
   key: string
@@ -46,16 +45,11 @@ export default function MobilePreviewFrame({ children }: { children: React.React
   baseParams.delete("preview")
   baseParams.delete("previewEmbedded")
 
-  const defaultPreviewParams = new URLSearchParams(baseParams.toString())
-  defaultPreviewParams.set("preview", "mobile")
-  defaultPreviewParams.set("device", "iphone14promax")
-
   const iframeParams = new URLSearchParams(baseParams.toString())
   iframeParams.set("previewEmbedded", "1")
   iframeParams.set("device", selectedDevice)
 
   const normalHref = withQuery(pathname, baseParams)
-  const defaultPreviewHref = withQuery(pathname, defaultPreviewParams)
   const iframeSrc = withQuery(pathname, iframeParams)
 
   useEffect(() => {
@@ -106,15 +100,6 @@ export default function MobilePreviewFrame({ children }: { children: React.React
   if (!previewMode) {
     return (
       <>
-        <div className="fixed right-4 top-4 z-[80] hidden md:flex">
-          <Link
-            href={defaultPreviewHref}
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-[#d8deea] bg-white px-4 text-[13px] font-semibold text-[#0f1115] shadow-sm transition-colors hover:bg-[#f7f9fc]"
-          >
-            <Smartphone className="h-4 w-4" />
-            Mobile Preview
-          </Link>
-        </div>
         {children}
       </>
     )

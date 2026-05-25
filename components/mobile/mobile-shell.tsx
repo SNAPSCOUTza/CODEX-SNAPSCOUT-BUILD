@@ -1,7 +1,7 @@
 "use client"
 
 import type { ComponentType, ReactNode } from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
@@ -12,6 +12,7 @@ import {
   Camera,
   CircleUserRound,
   Compass,
+  Bell,
   Heart,
   Home,
   MessageCircle,
@@ -57,6 +58,7 @@ const menuItems: StaggeredMenuItem[] = [
 ]
 
 const baseQuickMenuItems: StaggeredMenuItem[] = [
+  { label: "Notifications", link: "/notifications", ariaLabel: "Open notifications", icon: Bell },
   { label: "Community", link: "/community", ariaLabel: "Open community page", icon: Compass },
   { label: "Messages", link: "/messages", ariaLabel: "Open messages", icon: MessageCircle },
   { label: "Saved Profiles", link: "/saved-profiles", ariaLabel: "Open saved profiles", icon: Heart },
@@ -65,9 +67,8 @@ const baseQuickMenuItems: StaggeredMenuItem[] = [
 export default function MobileShell({ title, rightAction, children }: MobileShellProps) {
   const pathname = usePathname()
   const { user } = useAuth()
-  const [showBottomNav, setShowBottomNav] = useState(true)
+  const [showBottomNav] = useState(true)
   const [crewPoolCount, setCrewPoolCount] = useState(0)
-  const lastScrollY = useRef(0)
 
   useEffect(() => {
     if (!user) {
@@ -117,39 +118,15 @@ export default function MobileShell({ title, rightAction, children }: MobileShel
     return "/"
   }, [pathname])
 
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    lastScrollY.current = window.scrollY
-
-    const handleScroll = () => {
-      const currentY = window.scrollY
-      const delta = currentY - lastScrollY.current
-
-      if (currentY <= 18) {
-        setShowBottomNav(true)
-      } else if (delta > 8) {
-        setShowBottomNav(false)
-      } else if (delta < -8) {
-        setShowBottomNav(true)
-      }
-
-      lastScrollY.current = currentY
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
-
   return (
     <div className="flex min-h-[100dvh] flex-col bg-white text-[#0b0b0d]">
-      <div className="w-full flex-1 px-1.5 pb-[calc(108px+env(safe-area-inset-bottom))] pt-3">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, ease: "easeOut", delay: 0.04 }}
-          className="mt-3 flex items-center justify-between"
-        >
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24, ease: "easeOut", delay: 0.04 }}
+        className="fixed inset-x-0 top-0 z-40 bg-white/98 px-1.5 pt-[max(6px,env(safe-area-inset-top))] pb-2 backdrop-blur supports-[backdrop-filter]:bg-white/90"
+      >
+        <div className="mt-1 flex items-center justify-between">
           <motion.div whileTap={{ scale: 0.97 }}>
             <Link href="/" aria-label="SnapScout home">
               <Image src="/images/snapscout-circular-logo.png" alt="SnapScout" width={56} height={56} className="h-14 w-14" />
@@ -157,10 +134,12 @@ export default function MobileShell({ title, rightAction, children }: MobileShel
           </motion.div>
           <h1 className="text-[17px] font-semibold">{title}</h1>
           <div className="h-11 w-11" aria-hidden="true" />
-        </motion.div>
+        </div>
+      </motion.div>
 
+      <div className="w-full flex-1 px-1.5 pb-[calc(108px+env(safe-area-inset-bottom))] pt-[calc(74px+env(safe-area-inset-top))]">
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: "easeOut", delay: 0.08 }}
           className="mt-6 [&_button]:transition-transform [&_button]:duration-150 [&_button:active]:scale-[0.97]"

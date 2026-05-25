@@ -500,7 +500,7 @@ export default function RoleManagementModal({
                     <div>
                       <h4 className="font-medium text-foreground">Free Browsing</h4>
                       <p className="text-sm text-muted-foreground">
-                        Browse unlimited profiles of film crew and content creators without a subscription.
+                        Browse unlimited profiles of film crew and creators without a subscription.
                       </p>
                     </div>
                   </div>
@@ -526,7 +526,7 @@ export default function RoleManagementModal({
                       <p className="text-sm text-muted-foreground">
                         {accountType === "studio"
                           ? "Create a public studio profile to attract clients and showcase your facilities."
-                          : "List your store and products to reach filmmakers and content creators."}
+                          : "List your store and products to reach filmmakers and creators."}
                       </p>
                     </div>
                   </div>
@@ -549,7 +549,7 @@ export default function RoleManagementModal({
                     <div>
                       <h4 className="font-medium text-foreground">Free Browsing</h4>
                       <p className="text-sm text-muted-foreground">
-                        Browse unlimited profiles of film crew and content creators without a subscription.
+                        Browse unlimited profiles of film crew and creators without a subscription.
                       </p>
                     </div>
                   </div>
@@ -610,7 +610,7 @@ export default function RoleManagementModal({
                 {pendingAccountType === "film_crew"
                   ? "Film Crew"
                   : pendingAccountType === "content_creator"
-                    ? "Content Creator"
+                    ? "Creator"
                     : pendingAccountType === "studio"
                       ? "Studio"
                       : pendingAccountType === "store"

@@ -18,6 +18,7 @@ import {
   Heart,
   Bell,
   FolderKanban,
+  Compass,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { NavBar } from "@/components/ui/tubelight-navbar"
@@ -25,7 +26,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { HeaderToolbar } from "@/components/ui/header-toolbar"
 import { StaggeredMenu, AnimatedMenuIcon } from "@/components/ui/staggered-menu"
-import { CommunityNavLink } from "@/components/community/community-nav-link"
 
 export default function Header() {
   const { user, profile, isLoading, signOut: handleAuthSignOut } = useAuth()
@@ -158,9 +158,7 @@ export default function Header() {
     )
   }
 
-  const navigationItems = user
-    ? [...getNavigationItems(), { name: "Crew Pools", url: "/crew-pools", icon: FolderKanban, badgeCount: crewPoolCount }]
-    : getNavigationItems()
+  const navigationItems = getNavigationItems()
 
   const toolbarItems = user
     ? [
@@ -175,6 +173,7 @@ export default function Header() {
   const actionItems = user
     ? [
         { name: "Crew Pools", url: "/crew-pools", icon: FolderKanban, badgeCount: crewPoolCount },
+        { name: "Community", url: "/community", icon: Compass },
         { name: "Messages", url: "/messages", icon: MessageCircle },
         { name: "Saved Profiles", url: "/saved-profiles", icon: Heart },
         { name: "Dashboard", url: getDashboardLink(), icon: User },
@@ -237,7 +236,6 @@ export default function Header() {
             </div>
 
             <div className="hidden md:flex items-center gap-2">
-              <CommunityNavLink className="text-gray-700" />
               {user ? (
                 <HeaderToolbar items={toolbarItems} defaultActiveIndex={3} />
               ) : (

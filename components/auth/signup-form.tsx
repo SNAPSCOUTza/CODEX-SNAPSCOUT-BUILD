@@ -110,7 +110,7 @@ export function SignupForm() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="film_crew">Film Crew</SelectItem>
-            <SelectItem value="content_creator">Content Creator</SelectItem>
+            <SelectItem value="content_creator">Creator</SelectItem>
             <SelectItem value="scout">Scout (Free)</SelectItem>
             <SelectItem value="studio">Studio</SelectItem>
             <SelectItem value="store">Store</SelectItem>

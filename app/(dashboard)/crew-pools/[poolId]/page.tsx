@@ -208,7 +208,7 @@ export default function CrewPoolDetailPage() {
         )}
       </div>
 
-      {selectedMembers.length > 0 && (
+      {selectedMembers.length > 0 && !requestOpen && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#e4ebf3] bg-white/95 px-4 py-4 backdrop-blur md:hidden">
           <Button
             type="button"

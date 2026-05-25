@@ -35,7 +35,7 @@ export default function OnboardingComplete({ data, onComplete }: OnboardingCompl
       case "film_crew":
         return "Film Crew Professional"
       case "content_creator":
-        return "Content Creator"
+        return "Creator"
       case "studio":
         return "Studio"
       case "store":

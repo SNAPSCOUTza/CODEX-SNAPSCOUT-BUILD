@@ -201,6 +201,7 @@ export default function ProfileDiscovery() {
       case "Film Crew":
         return <Camera className="h-4 w-4" />
       case "Content Creator":
+      case "Creator":
         return <Video className="h-4 w-4" />
       case "Studio":
         return <Building className="h-4 w-4" />
@@ -297,7 +298,7 @@ export default function ProfileDiscovery() {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="Scout">Scout</SelectItem>
                 <SelectItem value="Film Crew">Film Crew</SelectItem>
-                <SelectItem value="Content Creator">Content Creator</SelectItem>
+                <SelectItem value="Content Creator">Creator</SelectItem>
                 <SelectItem value="Studio">Studio</SelectItem>
               </SelectContent>
             </Select>

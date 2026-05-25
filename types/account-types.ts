@@ -103,7 +103,7 @@ export const ACCOUNT_TYPES: Record<AccountType, AccountTypeInfo> = {
   },
   content_creator: {
     id: "content_creator",
-    title: "Content Creator",
+    title: "Creator",
     subtitle: "Create content for brands",
     description: "Offer photography and videography services. Work with brands, businesses, and individuals.",
     icon: "📸",
@@ -138,12 +138,12 @@ export const ACCOUNT_TYPES: Record<AccountType, AccountTypeInfo> = {
     title: "Store/Brand",
     subtitle: "Get content for your business",
     description:
-      "Businesses and brands looking for content creators to produce marketing materials, product photos, and promotional content.",
+      "Businesses and brands looking for creators to produce marketing materials, product photos, and promotional content.",
     icon: "🛍️",
     category: "client",
     pricing: "free",
     features: [
-      "Find content creators for your brand",
+      "Find creators for your brand",
       "Commission product photography",
       "Get social media content",
       "Access to marketing professionals",

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import type { CrewPoolMember } from "@/types/crew-pool"
 
@@ -15,6 +16,18 @@ type AvailabilityRequestModalProps = {
   onOpenChange: (open: boolean) => void
   poolId: string
   selectedMembers: CrewPoolMember[]
+}
+
+const PROVINCE_CITIES: Record<string, string[]> = {
+  "Eastern Cape": ["Port Elizabeth", "East London", "Mthatha"],
+  "Free State": ["Bloemfontein", "Welkom", "Bethlehem"],
+  Gauteng: ["Johannesburg", "Pretoria", "Sandton"],
+  "KwaZulu-Natal": ["Durban", "Pietermaritzburg", "Ballito"],
+  Limpopo: ["Polokwane", "Tzaneen", "Mokopane"],
+  Mpumalanga: ["Mbombela", "Witbank", "Secunda"],
+  "North West": ["Rustenburg", "Mahikeng", "Potchefstroom"],
+  "Northern Cape": ["Kimberley", "Upington", "Kuruman"],
+  "Western Cape": ["Cape Town", "Stellenbosch", "Paarl"],
 }
 
 export function AvailabilityRequestModal({
@@ -27,6 +40,8 @@ export function AvailabilityRequestModal({
   const [shootDate, setShootDate] = useState("")
   const [projectName, setProjectName] = useState("")
   const [location, setLocation] = useState("")
+  const [province, setProvince] = useState("")
+  const [city, setCity] = useState("")
   const [note, setNote] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -46,10 +61,12 @@ export function AvailabilityRequestModal({
         credentials: "include",
         body: JSON.stringify({
           shoot_date: shootDate,
-          shoot_location: location,
+          shoot_location: location || [city, province].filter(Boolean).join(", "),
           project_name: projectName,
           note,
           crew_member_ids: selectedMembers.map((member) => member.profile_id),
+          province,
+          city,
         }),
       })
       const payload = await response.json()
@@ -76,14 +93,14 @@ export function AvailabilityRequestModal({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="shoot-date">Shoot date</Label>
-              <div className="relative">
-                <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#647084]" />
+              <div className="relative flex items-center">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#647084]" />
                 <Input
                   id="shoot-date"
                   type="date"
                   value={shootDate}
                   onChange={(event) => setShootDate(event.target.value)}
-                  className="h-12 rounded-2xl bg-white pl-10"
+                  className="h-12 rounded-2xl bg-white pl-10 pr-3"
                 />
               </div>
             </div>
@@ -110,6 +127,49 @@ export function AvailabilityRequestModal({
                 placeholder="Woodstock, Cape Town"
                 className="h-12 rounded-2xl bg-white pl-10"
               />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Province</Label>
+              <Select
+                value={province}
+                onValueChange={(value) => {
+                  setProvince(value)
+                  setCity("")
+                }}
+              >
+                <SelectTrigger className="h-12 rounded-2xl bg-white">
+                  <SelectValue placeholder="Select province" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  {Object.keys(PROVINCE_CITIES).map((provinceName) => (
+                    <SelectItem key={provinceName} value={provinceName}>
+                      {provinceName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>City / Town</Label>
+              <Select
+                value={city}
+                onValueChange={setCity}
+                disabled={!province}
+              >
+                <SelectTrigger className="h-12 rounded-2xl bg-white">
+                  <SelectValue placeholder={province ? "Select city" : "Choose province first"} />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  {(PROVINCE_CITIES[province] || []).map((cityName) => (
+                    <SelectItem key={cityName} value={cityName}>
+                      {cityName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
