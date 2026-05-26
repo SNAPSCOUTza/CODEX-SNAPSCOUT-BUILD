@@ -37,6 +37,7 @@ import {
   MapPin,
   Clock3,
   Warehouse,
+  Home,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,7 +81,20 @@ interface UserProfile {
     imdb_profile?: string
   }
   portfolio_images: string[]
-  skills?: any
+  skills?: string[]
+  specializations?: string[]
+  roles?: string[]
+  departments?: string[]
+  software_skills?: string[]
+  technical_skills?: string[]
+  photography_skills?: string[]
+  videography_skills?: string[]
+  willing_to_travel?: boolean
+  hourly_rate?: string
+  daily_rate?: string
+  project_rate?: string
+  rate_card_visible?: boolean
+  experience_level?: string
   pricing?: string
   subscription_status?: string
   onboarding_data?: Record<string, any>
@@ -180,6 +194,74 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: "store", label: "Equipment Store" },
 ]
 
+const CREATOR_SPECIALIZATION_OPTIONS = [
+  "Portrait Photography",
+  "Wedding",
+  "Fashion Shoots",
+  "Product",
+  "Food",
+  "Events",
+  "Corporate",
+  "Lifestyle",
+  "Fine Art",
+  "Street",
+  "Real Estate",
+  "Nature",
+  "Family/Newborn",
+  "Boudoir",
+  "Architectural",
+  "Music Videos",
+  "Commercial/Ads",
+  "Documentary",
+  "Drone",
+  "YouTube",
+  "TikTok/Reels",
+  "Live Streaming",
+  "Brand Story",
+]
+
+const CREW_ROLE_OPTIONS = [
+  "Director",
+  "Producer",
+  "Director of Photography",
+  "Cinematographer / DOP",
+  "Camera Operator",
+  "Sound Engineer",
+  "Boom Operator",
+  "Gaffer",
+  "Editor",
+  "Script Supervisor",
+  "Makeup Artist",
+]
+
+const DEPARTMENT_OPTIONS = [
+  "Camera",
+  "Audio",
+  "Lighting",
+  "Production",
+  "Art",
+  "Hair & Makeup",
+  "Post-Production",
+  "Grip",
+  "Directing",
+  "Editing",
+]
+
+const SKILL_OPTIONS = [
+  "Natural Light",
+  "Color Grading",
+  "Drone Operations",
+  "Location Recording",
+  "Post-Production Mixing",
+  "Foley Design",
+  "Portrait Lighting",
+  "Studio Lighting",
+  "Commercial Beauty",
+  "Brand Campaigns",
+  "Product Retouching",
+  "Client Direction",
+]
+
 const GALLERY_PLATFORM_META: Record<
   PortfolioSourcePlatform | "linkedin" | "website",
   {
@@ -247,6 +329,27 @@ const GALLERY_PLATFORM_META: Record<
 
 function isEqual(obj1: any, obj2: any): boolean {
   return JSON.stringify(obj1) === JSON.stringify(obj2)
+}
+
+function normalizeTextArray(value: any): string[] {
+  if (!value) return []
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function rateToString(value: any) {
+  if (value === undefined || value === null || value === "") return ""
+  return String(value)
 }
 
 function normalizeProfileUrl(platform: string, value?: string) {
@@ -413,6 +516,86 @@ function GalleryPreviewTile({
   )
 }
 
+function ChipPicker({
+  label,
+  description,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  description?: string
+  options: string[]
+  value?: string[]
+  onChange: (value: string[]) => void
+}) {
+  const selected = normalizeTextArray(value)
+  const selectedSummary =
+    selected.length > 0
+      ? `${selected.slice(0, 3).join(", ")}${selected.length > 3 ? ` +${selected.length - 3} more` : ""}`
+      : `Select ${label.toLowerCase()}`
+
+  const toggle = (option: string) => {
+    const next = selected.includes(option)
+      ? selected.filter((item) => item !== option)
+      : [...selected, option]
+    onChange(next)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label>{label}</Label>
+        {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+      </div>
+      <details className="group rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm transition hover:border-red-200 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0">
+            <span className="block truncate font-semibold text-gray-900">{selectedSummary}</span>
+            <span className="mt-1 block text-xs text-gray-500">
+              {selected.length ? `${selected.length} selected` : "Tap to choose"}
+            </span>
+          </span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100 text-xs font-bold text-gray-600 transition group-open:bg-red-50 group-open:text-red-600">
+            {selected.length}
+          </span>
+        </summary>
+        <div className="border-t border-gray-100 p-3">
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="mb-3 text-xs font-semibold text-red-600 hover:text-red-700"
+            >
+              Clear selections
+            </button>
+          )}
+          <div className="grid max-h-60 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+            {options.map((option) => {
+              const isSelected = selected.includes(option)
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => toggle(option)}
+                  className={`flex min-h-11 items-center justify-between gap-3 rounded-full border px-4 py-2 text-left text-sm font-semibold transition ${
+                    isSelected
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-gray-200 bg-gray-50 text-gray-800 hover:border-red-200 hover:bg-red-50"
+                  }`}
+                >
+                  <span>{option}</span>
+                  {isSelected && <Check className="h-4 w-4 shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </details>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -435,6 +618,20 @@ export default function DashboardPage() {
     is_public: false,
     social_links: {},
     portfolio_images: [],
+    skills: [],
+    specializations: [],
+    roles: [],
+    departments: [],
+    software_skills: [],
+    technical_skills: [],
+    photography_skills: [],
+    videography_skills: [],
+    willing_to_travel: false,
+    hourly_rate: "",
+    daily_rate: "",
+    project_rate: "",
+    rate_card_visible: true,
+    experience_level: "",
   })
   const [subscription, setSubscription] = useState<UserSubscription | null>(null)
 
@@ -472,6 +669,7 @@ export default function DashboardPage() {
             ? "videographer"
             : "crew"
   const isStudioOrStoreAccount = profileData.account_type === "studio" || profileData.account_type === "store"
+  const isCreatorDashboard = !isStudioOrStoreAccount && profileData.account_type !== "scout"
 
   const hasUnsavedChanges = useCallback(() => {
     if (!initialProfileRef.current) return false
@@ -602,30 +800,59 @@ export default function DashboardPage() {
       if (result.profile) {
         const profile = result.profile
         const socialLinks = profile.social_links || {}
+        const location = typeof profile.location === "string" ? profile.location : ""
+        let loadedCity = profile.city || ""
+        let loadedProvince = profile.province || profile.provinces || ""
+
+        if (location.includes(",")) {
+          const [locationCity, locationProvince] = location.split(",").map((s: string) => s.trim())
+          loadedCity = !loadedCity || loadedCity.includes(",") ? locationCity : loadedCity
+          loadedProvince = loadedProvince || locationProvince
+        }
+
         const newProfileData = {
-          full_name: profile.full_name || "",
-          display_name: profile.display_name || "",
-          account_type: profile.account_type || "creator",
+          full_name: profile.full_name || profile.display_name || "",
+          display_name: profile.display_name || profile.full_name || "",
+          account_type: profile.account_type || profile.user_type || "creator",
           bio: profile.bio || "",
           profession: profile.profession || "",
-          location: profile.location || "",
-          profile_image_url: profile.profile_image_url || "",
-          availability: profile.availability || "available",
+          location: location || [loadedCity, loadedProvince].filter(Boolean).join(", "),
+          profile_image_url: profile.profile_image_url || profile.profile_picture || profile.avatar_url || "",
+          availability: profile.availability || profile.availability_status || "available",
           pricing: profile.pricing || "",
-          is_public: profile.is_public ?? true,
-          skills: profile.skills || [],
+          is_public: profile.is_public ?? profile.is_profile_visible ?? true,
+          skills: normalizeTextArray(profile.skills || profile.specializations || profile.roles),
+          specializations: normalizeTextArray(profile.specializations || profile.skills),
+          roles: normalizeTextArray(profile.roles),
+          departments: normalizeTextArray(profile.departments),
+          software_skills: normalizeTextArray(profile.software_skills),
+          technical_skills: normalizeTextArray(profile.technical_skills),
+          photography_skills: normalizeTextArray(profile.photography_skills),
+          videography_skills: normalizeTextArray(profile.videography_skills),
+          willing_to_travel: Boolean(profile.willing_to_travel),
+          hourly_rate: rateToString(profile.hourly_rate),
+          daily_rate: rateToString(profile.daily_rate),
+          project_rate: rateToString(profile.project_rate),
+          rate_card_visible: profile.rate_card_visible ?? true,
+          experience_level: profile.experience_level || "",
           social_links: {
-            website: socialLinks.website || profile.website || "",
-            instagram: socialLinks.instagram || profile.instagram || "",
-            twitter: socialLinks.twitter || profile.twitter || "",
-            linkedin: socialLinks.linkedin || profile.linkedin || "",
-            youtube: socialLinks.youtube || profile.youtube || "",
-            vimeo: socialLinks.vimeo || profile.vimeo || "",
-            facebook: socialLinks.facebook || profile.facebook || "",
-            imdb: socialLinks.imdb || socialLinks.imdb_profile || profile.imdb_profile || "",
+            website: socialLinks.website || profile.website || profile.website_url || profile.portfolio_url || "",
+            instagram: socialLinks.instagram || profile.instagram || profile.instagram_url || "",
+            twitter: socialLinks.twitter || profile.twitter || profile.twitter_url || "",
+            linkedin: socialLinks.linkedin || profile.linkedin || profile.linkedin_url || "",
+            youtube: socialLinks.youtube || profile.youtube || profile.youtube_url || "",
+            vimeo: socialLinks.vimeo || profile.vimeo || profile.vimeo_url || "",
+            facebook: socialLinks.facebook || profile.facebook || profile.facebook_url || "",
+            imdb:
+              socialLinks.imdb ||
+              socialLinks.imdb_profile ||
+              profile.imdb_profile ||
+              profile.imdb ||
+              profile.imdb_url ||
+              "",
           },
           portfolio_images: profile.portfolio_images || [],
-          subscription_status: profile.subscription_status || "free",
+          subscription_status: profile.subscription_status || (profile.user_type === "scout" ? "active" : "free"),
         }
 
         setProfileData(newProfileData)
@@ -643,12 +870,8 @@ export default function DashboardPage() {
         const completeness = calculateProfileCompleteness(profile)
         setProfileCompleteness(completeness)
 
-        // Parse location if it contains city, province format
-        if (profile.location && profile.location.includes(",")) {
-          const [city, province] = profile.location.split(",").map((s: string) => s.trim())
-          setSelectedCity(city)
-          setSelectedProvince(province)
-        }
+        setSelectedCity(loadedCity)
+        setSelectedProvince(loadedProvince)
       }
     } catch (error) {
       console.error("[v0] Dashboard: Error loading profile:", error)
@@ -820,20 +1043,57 @@ export default function DashboardPage() {
 
       const profileToSave = {
         id: user.id,
+        user_id: user.id,
         full_name: profileData.full_name,
         display_name: profileData.display_name,
         account_type: profileData.account_type,
+        user_type: profileData.account_type,
         email: user.email,
         bio: profileData.bio,
         profession: profileData.profession || "Creative",
         location,
+        city: selectedCity || null,
+        cities: selectedCity || null,
+        province: selectedProvince || null,
+        provinces: selectedProvince || null,
         profile_image_url: profileData.profile_image_url,
+        profile_picture: profileData.profile_image_url,
+        avatar_url: profileData.profile_image_url,
         availability: profileData.availability,
+        availability_status: profileData.availability,
         is_public: profileData.is_public,
+        is_profile_visible: profileData.is_public,
         social_links: profileData.social_links,
+        instagram: profileData.social_links.instagram || "",
+        instagram_url: profileData.social_links.instagram || "",
+        linkedin: profileData.social_links.linkedin || "",
+        linkedin_url: profileData.social_links.linkedin || "",
+        youtube: profileData.social_links.youtube || "",
+        youtube_url: profileData.social_links.youtube || "",
+        facebook: profileData.social_links.facebook || "",
+        facebook_url: profileData.social_links.facebook || "",
+        vimeo: profileData.social_links.vimeo || "",
+        vimeo_url: profileData.social_links.vimeo || "",
+        imdb_profile: profileData.social_links.imdb || profileData.social_links.imdb_profile || "",
+        imdb_url: profileData.social_links.imdb || profileData.social_links.imdb_profile || "",
+        website: profileData.social_links.website || "",
+        portfolio_url: profileData.social_links.website || "",
         portfolio_images: profileData.portfolio_images,
         pricing: profileData.pricing,
-        skills: profileData.skills,
+        skills: normalizeTextArray(profileData.skills),
+        specializations: normalizeTextArray(profileData.specializations || profileData.skills),
+        roles: normalizeTextArray(profileData.roles),
+        departments: normalizeTextArray(profileData.departments),
+        software_skills: normalizeTextArray(profileData.software_skills),
+        technical_skills: normalizeTextArray(profileData.technical_skills),
+        photography_skills: normalizeTextArray(profileData.photography_skills),
+        videography_skills: normalizeTextArray(profileData.videography_skills),
+        willing_to_travel: Boolean(profileData.willing_to_travel),
+        hourly_rate: profileData.hourly_rate || "",
+        daily_rate: profileData.daily_rate || "",
+        project_rate: profileData.project_rate || "",
+        rate_card_visible: profileData.rate_card_visible ?? true,
+        experience_level: profileData.experience_level || "",
         onboarding_data: mergedOnboardingData,
         updated_at: new Date().toISOString(),
       }
@@ -1075,7 +1335,18 @@ export default function DashboardPage() {
               <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
               <SaveStatusIndicator />
             </div>
+            <Button asChild variant="outline" size="icon" className="h-10 w-10 rounded-full md:hidden">
+              <Link href="/" aria-label="Return to home page">
+                <Home className="h-4 w-4" />
+              </Link>
+            </Button>
             <div className="hidden items-center gap-4 md:flex">
+              <Button asChild variant="outline">
+                <Link href="/">
+                  <Home className="mr-2 h-4 w-4" />
+                  Return Home
+                </Link>
+              </Button>
               <Button
                 onClick={handleSaveProfile}
                 disabled={saveStatus === "saving"}
@@ -1377,6 +1648,118 @@ export default function DashboardPage() {
                       />
                     </div>
                   </div>
+
+                  {isCreatorDashboard && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                      <div className="mb-5">
+                        <h3 className="text-lg font-semibold text-gray-950">Creator Discovery</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Keep these details current so clients can filter and book the right profile.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div>
+                          <Label>Experience Level</Label>
+                          <Select
+                            value={profileData.experience_level || ""}
+                            onValueChange={(value) => handleInputChange("experience_level", value)}
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Select level" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                              <SelectItem value="Beginner">Beginner</SelectItem>
+                              <SelectItem value="Intermediate">Intermediate</SelectItem>
+                              <SelectItem value="Professional">Professional</SelectItem>
+                              <SelectItem value="Expert">Expert</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="hourly_rate">Hourly Rate</Label>
+                          <Input
+                            id="hourly_rate"
+                            inputMode="numeric"
+                            value={profileData.hourly_rate || ""}
+                            onChange={(e) => handleInputChange("hourly_rate", e.target.value)}
+                            placeholder="e.g. 950"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="daily_rate">Day Rate</Label>
+                          <Input
+                            id="daily_rate"
+                            inputMode="numeric"
+                            value={profileData.daily_rate || ""}
+                            onChange={(e) => handleInputChange("daily_rate", e.target.value)}
+                            placeholder="e.g. 4500"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="project_rate">Project Rate</Label>
+                          <Input
+                            id="project_rate"
+                            inputMode="numeric"
+                            value={profileData.project_rate || ""}
+                            onChange={(e) => handleInputChange("project_rate", e.target.value)}
+                            placeholder="Optional package rate"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between rounded-xl border border-gray-200 p-4 md:col-span-1">
+                          <div>
+                            <Label>Willing to Travel</Label>
+                            <p className="mt-1 text-xs text-gray-500">Show clients you can travel for work.</p>
+                          </div>
+                          <Switch
+                            checked={Boolean(profileData.willing_to_travel)}
+                            onCheckedChange={(checked) => handleInputChange("willing_to_travel", checked)}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between rounded-xl border border-gray-200 p-4 md:col-span-1">
+                          <div>
+                            <Label>Show Rate Card</Label>
+                            <p className="mt-1 text-xs text-gray-500">Turn off if rates are only by inquiry.</p>
+                          </div>
+                          <Switch
+                            checked={profileData.rate_card_visible ?? true}
+                            onCheckedChange={(checked) => handleInputChange("rate_card_visible", checked)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <ChipPicker
+                          label="Specializations"
+                          description="These power creator filters and the tags shown on your profile."
+                          options={CREATOR_SPECIALIZATION_OPTIONS}
+                          value={profileData.specializations}
+                          onChange={(value) => handleInputChange("specializations", value)}
+                        />
+                        <ChipPicker
+                          label="Skills"
+                          description="Choose the skills clients should recognize immediately."
+                          options={SKILL_OPTIONS}
+                          value={profileData.skills}
+                          onChange={(value) => handleInputChange("skills", value)}
+                        />
+                        <ChipPicker
+                          label="Roles"
+                          description="Useful for film crew and production searches."
+                          options={CREW_ROLE_OPTIONS}
+                          value={profileData.roles}
+                          onChange={(value) => handleInputChange("roles", value)}
+                        />
+                        <ChipPicker
+                          label="Departments"
+                          description="Helps production teams filter crew by department."
+                          options={DEPARTMENT_OPTIONS}
+                          value={profileData.departments}
+                          onChange={(value) => handleInputChange("departments", value)}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Social Links */}
                   <div>

@@ -22,7 +22,7 @@ import { motion } from "framer-motion"
 import { AvailabilityStatusBadge } from "@/components/availability/availability-status-badge"
 import { HireRequestSheet } from "@/components/booking/hire-request-sheet"
 import { AnimatedCount } from "@/components/ui/animated-count"
-import { MotionRevealGroup, MotionRevealItem, MotionRevealSolo } from "@/components/ui/motion-reveal"
+import { MotionRevealGroup, MotionRevealItem } from "@/components/ui/motion-reveal"
 import { StickyScrollCard } from "@/components/ui/sticky-scroll-card"
 
 interface CrewMember {
@@ -376,15 +376,8 @@ export default function FindCrewPage() {
             </Button>
           }
         >
-          <MotionRevealGroup className="fixed inset-x-1.5 top-[calc(74px+env(safe-area-inset-top)+12px)] bottom-[calc(102px+env(safe-area-inset-bottom))] z-20 flex flex-col rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
-            {usingMockData && (
-              <MotionRevealSolo className="mb-3">
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                  Showing mock crew profiles while live profiles load.
-                </div>
-              </MotionRevealSolo>
-            )}
-            <div className="sticky top-0 z-30 -mx-2 bg-white/95 px-2 pb-2 pt-1 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+          <MotionRevealGroup className="rounded-[28px] border border-[#ece4da] bg-white p-4 shadow-[0_14px_34px_rgba(0,0,0,0.05)]">
+            <div>
               <MotionRevealItem className="flex items-center gap-2 rounded-2xl border border-[#e7e0d6] bg-white px-3 py-3">
                 <Search className="h-4 w-4 text-[#73757d]" />
                 <Input
@@ -424,7 +417,7 @@ export default function FindCrewPage() {
               </MotionRevealItem>
             </div>
 
-            <div className="no-scrollbar mt-4 flex-1 overflow-y-auto pr-1">
+            <div className="mt-4">
               {loading ? (
                 <div className="space-y-4">
                   {[...Array(3)].map((_, i) => (
@@ -540,7 +533,6 @@ export default function FindCrewPage() {
                   </div>
                 </MotionRevealItem>
               )}
-              <div className="h-1" />
             </div>
           </MotionRevealGroup>
 

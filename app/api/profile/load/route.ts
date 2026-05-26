@@ -1,36 +1,13 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-
-function normalizeProfile(profile: any, user: { id: string; email?: string | null }) {
-  if (!profile) return null
-
-  const avatar = profile.profile_image_url || profile.profile_picture || profile.avatar_url || null
-  return {
-    ...profile,
-    id: profile.id || profile.user_id || user.id,
-    user_id: profile.user_id || user.id,
-    username: profile.username || profile.display_name || profile.full_name || null,
-    full_name: profile.full_name || null,
-    display_name: profile.display_name || profile.full_name || null,
-    avatar_url: avatar,
-    profile_picture: avatar,
-    profile_image_url: avatar,
-    email: profile.email || user.email || null,
-    location: profile.location || profile.city || null,
-    is_profile_visible: profile.is_profile_visible ?? profile.is_public ?? true,
-    is_public: profile.is_public ?? profile.is_profile_visible ?? true,
-    subscription_status:
-      profile.subscription_status || (profile.account_type?.toLowerCase?.() === "scout" ? "active" : "inactive"),
-  }
-}
+import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
+import { normalizeProfile } from "@/lib/profile-normalization"
 
 export async function GET(request: Request) {
   try {
     console.log("[v0] Profile load request received")
     console.log("[v0] Request URL:", request.url)
-    console.log("[v0] Request headers:", Object.fromEntries(request.headers.entries()))
 
     // Verify the user is authenticated
     const cookieStore = await cookies()
@@ -63,9 +40,17 @@ export async function GET(request: Request) {
 
     console.log("[v0] Loading profile for user:", user.id)
 
-    const profile = await prisma.userProfile.findUnique({
-      where: { user_id: user.id },
-    })
+    const profileClient = isAdminClientAvailable() ? createAdminClient() : supabase
+    const { data: profile, error: profileError } = await profileClient
+      .from("user_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (profileError) {
+      console.error("[v0] Profile load - user_profiles error:", profileError.message)
+      return NextResponse.json({ error: "Failed to load profile: " + profileError.message }, { status: 500 })
+    }
 
     console.log("[v0] Profile loaded:", profile ? "found" : "null")
 

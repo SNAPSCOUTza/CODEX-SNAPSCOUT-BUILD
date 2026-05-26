@@ -1,7 +1,67 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { createAdminClient, isAdminClientAvailable } from "@/lib/supabase/admin"
+import { normalizeProfile, normalizeSocialLinks } from "@/lib/profile-normalization"
+
+const emptyToNull = (value: any) => {
+  if (value === undefined || value === null) return null
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    return trimmed ? trimmed : null
+  }
+  return value
+}
+
+const rateToNumber = (value: any) => {
+  const cleaned = typeof value === "string" ? value.replace(/[^\d.-]/g, "") : value
+  if (cleaned === undefined || cleaned === null || cleaned === "") return null
+  const parsed = Number(cleaned)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const asTextArray = (value: any) => {
+  if (!value) return []
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean)
+  }
+  if (typeof value === "string") {
+    return value.split(",").map((item) => item.trim()).filter(Boolean)
+  }
+  return []
+}
+
+const getMissingColumn = (message = "") => {
+  return (
+    message.match(/Could not find the '([^']+)' column/)?.[1] ||
+    message.match(/column "([^"]+)"/)?.[1] ||
+    null
+  )
+}
+
+async function upsertProfile(profileClient: any, payload: Record<string, any>) {
+  const dataToUpsert = { ...payload }
+  let lastError: any = null
+
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const { data, error } = await profileClient
+      .from("user_profiles")
+      .upsert(dataToUpsert, { onConflict: "user_id" })
+      .select("*")
+      .single()
+
+    if (!error) return { data, error: null }
+
+    lastError = error
+    const missingColumn = getMissingColumn(error.message)
+    if (!missingColumn || !(missingColumn in dataToUpsert)) break
+
+    console.warn(`[v0] Profile save retrying without missing column: ${missingColumn}`)
+    delete dataToUpsert[missingColumn]
+  }
+
+  return { data: null, error: lastError }
+}
 
 export async function POST(request: Request) {
   try {
@@ -46,66 +106,88 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "You can only update your own profile" }, { status: 403 })
     }
 
-    const socialLinks = profileData.social_links || {}
+    const socialLinks = normalizeSocialLinks(profileData)
     const profilePicture = profileData.profile_image_url || profileData.profile_picture || profileData.avatar_url || null
     const isVisible = profileData.is_profile_visible ?? profileData.is_public ?? true
 
+    const locationParts =
+      typeof profileData.location === "string" ? profileData.location.split(",").map((part: string) => part.trim()) : []
+    let city = emptyToNull(profileData.city || locationParts[0] || profileData.location)
+    let province = emptyToNull(profileData.province || locationParts[1])
+
+    if (typeof city === "string" && city.includes(",")) {
+      const [parsedCity, parsedProvince] = city.split(",").map((part: string) => part.trim())
+      city = emptyToNull(parsedCity)
+      province = province || emptyToNull(parsedProvince)
+    }
+
     const dataToSave: any = {
       user_id: user.id,
-      full_name: profileData.full_name || null,
-      display_name: profileData.display_name || null,
-      account_type: profileData.account_type || null,
-      user_type: profileData.account_type || profileData.user_type || null,
+      full_name: emptyToNull(profileData.full_name),
+      display_name: emptyToNull(profileData.display_name),
+      username: emptyToNull(profileData.username || profileData.display_name || profileData.full_name),
+      account_type: emptyToNull(profileData.account_type || profileData.user_type),
+      user_type: emptyToNull(profileData.account_type || profileData.user_type),
       email: profileData.email || user.email,
-      bio: profileData.bio || null,
-      profession: profileData.profession || "Creative",
-      location: profileData.location || profileData.city || null,
-      city: profileData.city || profileData.location || null,
+      bio: emptyToNull(profileData.bio),
+      profession: emptyToNull(profileData.profession) || "Creative",
+      location: emptyToNull(profileData.location || city),
+      city,
+      cities: city,
+      province,
+      provinces: province,
       profile_picture: profilePicture,
+      profile_image_url: profilePicture,
+      avatar_url: profilePicture,
       availability: profileData.availability || "available",
       availability_status: profileData.availability_status || profileData.availability || "available",
+      is_public: isVisible,
       is_profile_visible: isVisible,
-      instagram: socialLinks.instagram || profileData.instagram || null,
-      linkedin: socialLinks.linkedin || profileData.linkedin || null,
-      youtube: socialLinks.youtube || profileData.youtube || null,
-      facebook: socialLinks.facebook || profileData.facebook || null,
-      vimeo: socialLinks.vimeo || profileData.vimeo || null,
-      imdb_profile: socialLinks.imdb || socialLinks.imdb_profile || profileData.imdb || profileData.imdb_profile || null,
-      website: socialLinks.website || profileData.website || null,
+      social_links: socialLinks,
+      instagram: emptyToNull(socialLinks.instagram),
+      instagram_url: emptyToNull(socialLinks.instagram),
+      linkedin: emptyToNull(socialLinks.linkedin),
+      linkedin_url: emptyToNull(socialLinks.linkedin),
+      youtube: emptyToNull(socialLinks.youtube),
+      youtube_url: emptyToNull(socialLinks.youtube),
+      facebook: emptyToNull(socialLinks.facebook),
+      vimeo: emptyToNull(socialLinks.vimeo),
+      vimeo_url: emptyToNull(socialLinks.vimeo),
+      imdb_profile: emptyToNull(socialLinks.imdb),
+      imdb_url: emptyToNull(socialLinks.imdb),
+      website: emptyToNull(socialLinks.website),
+      portfolio_url: emptyToNull(socialLinks.website),
       portfolio_images: profileData.portfolio_images || [],
-      skills: profileData.skills || [],
-      hourly_rate: profileData.hourly_rate || null,
-      daily_rate: profileData.daily_rate || null,
-      project_rate: profileData.project_rate || null,
+      skills: asTextArray(profileData.skills),
+      specializations: asTextArray(profileData.specializations || profileData.skills),
+      roles: asTextArray(profileData.roles),
+      departments: asTextArray(profileData.departments),
+      software_skills: asTextArray(profileData.software_skills),
+      technical_skills: asTextArray(profileData.technical_skills),
+      photography_skills: asTextArray(profileData.photography_skills),
+      videography_skills: asTextArray(profileData.videography_skills),
+      hourly_rate: rateToNumber(profileData.hourly_rate),
+      daily_rate: rateToNumber(profileData.daily_rate),
+      project_rate: rateToNumber(profileData.project_rate),
+      pricing: emptyToNull(profileData.pricing),
+      willing_to_travel: Boolean(profileData.willing_to_travel),
+      rate_card_visible: profileData.rate_card_visible ?? true,
+      experience_level: emptyToNull(profileData.experience_level),
       onboarding_data: profileData.onboarding_data || null,
-      updated_at: new Date(),
+      updated_at: new Date().toISOString(),
     }
 
     console.log("[v0] Upserting profile with data:", JSON.stringify(dataToSave, null, 2))
 
-    const data = await prisma.userProfile.upsert({
-      where: { user_id: user.id },
-      update: { ...dataToSave, updated_at: new Date() },
-      create: dataToSave,
-    })
+    const profileClient = isAdminClientAvailable() ? createAdminClient() : supabase
+    const { data, error: saveError } = await upsertProfile(profileClient, dataToSave)
 
-    const savedProfile: any = data
-    const normalized = savedProfile
-      ? {
-          ...savedProfile,
-          id: savedProfile.id || savedProfile.user_id || user.id,
-          user_id: savedProfile.user_id || user.id,
-          avatar_url: savedProfile.profile_image_url || savedProfile.profile_picture || null,
-          profile_picture: savedProfile.profile_image_url || savedProfile.profile_picture || null,
-          profile_image_url: savedProfile.profile_image_url || savedProfile.profile_picture || null,
-          username: savedProfile.username || savedProfile.display_name || savedProfile.full_name || null,
-          is_public: savedProfile.is_public ?? savedProfile.is_profile_visible ?? true,
-          is_profile_visible: savedProfile.is_profile_visible ?? savedProfile.is_public ?? true,
-          subscription_status:
-            savedProfile.subscription_status ||
-            (savedProfile.account_type?.toLowerCase?.() === "scout" ? "active" : "inactive"),
-        }
-      : null
+    if (saveError) {
+      console.error("[v0] Profile save error:", saveError.message)
+      return NextResponse.json({ error: saveError.message }, { status: 500 })
+    }
+
+    const normalized = normalizeProfile(data, { id: user.id, email: user.email })
 
     console.log("[v0] Profile saved successfully:", normalized?.id)
     return NextResponse.json({ success: true, profile: normalized })
